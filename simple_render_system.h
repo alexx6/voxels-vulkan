@@ -22,10 +22,13 @@ namespace vv {
 	private:
 		void createPipelineLayout();
 		void createPipeline(VkRenderPass renderPass);
-
+		VkBuffer uniformBuffer;
+		VkDeviceMemory uniformBufferMemory;
+		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 		VvDevice& vvDevice;
 
 		std::unique_ptr<VvPipeline> vvPipeline;
 		VkPipelineLayout pipelineLayout;
+		VkDescriptorSet descriptorSet;
 	};
 };

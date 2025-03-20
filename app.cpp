@@ -28,7 +28,7 @@ namespace vv {
         //camera.setViewTarget(glm::vec3(-1.f, -2.f, 2.f), glm::vec3(0.f, 0.f, 2.5f));
 
         auto viewerObject = VvGameObject::createGameObject();
-        viewerObject.transform.translation = glm::vec3(0.f, 0.f, 0.f);
+        viewerObject.transform.translation = glm::vec3(0.f, 10.f, -5.f);
         KeyboardMovementController cameraController{};
 
         auto currentTime = std::chrono::high_resolution_clock::now();
@@ -36,16 +36,16 @@ namespace vv {
 		while (!vvWindow.shouldClose()) {
 			glfwPollEvents();
 
-            auto newTime = std::chrono::high_resolution_clock::now();
-            float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
-            currentTime = newTime;
+      auto newTime = std::chrono::high_resolution_clock::now();
+      float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+      currentTime = newTime;
 
-            cameraController.moveInPlaneXZ(vvWindow.getGLFWwindow(), frameTime, viewerObject);
-            camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+      cameraController.moveInPlaneXZ(vvWindow.getGLFWwindow(), frameTime, viewerObject);
+      camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
-            float aspect = vvRenderer.getAspectRatio();
-            //camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
-            camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 10.f);
+      float aspect = vvRenderer.getAspectRatio();
+      //camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
+      camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 1000.f);
 
 			if (auto commandBuffer = vvRenderer.beginFrame()) {
 				vvRenderer.beginSwapChainRenderPass(commandBuffer);
@@ -61,40 +61,40 @@ namespace vv {
         VvModel::Builder modelBuilder{};
         modelBuilder.vertices = {
             // left face (white)
-            {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-            {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-            {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-            {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
+            {{0.f, 0.f, 0.f}, {.9f, .9f, .9f}},
+            {{0.f, 1.f, 1.f}, {.9f, .9f, .9f}},
+            {{0.f, 0.f, 1.f}, {.9f, .9f, .9f}},
+            {{0.f, 1.f, 0.f}, {.9f, .9f, .9f}},
 
             // right face (yellow)
-            {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-            {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-            {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-            {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
+            {{1.f, 0.f, 0.f}, {.8f, .8f, .1f}},
+            {{1.f, 1.f, 1.f}, {.8f, .8f, .1f}},
+            {{1.f, 0.f, 1.f}, {.8f, .8f, .1f}},
+            {{1.f, 1.f, 0.f}, {.8f, .8f, .1f}},
 
             // top face (orange, remember y axis points down)
-            {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-            {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-            {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-            {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+            {{0.f, 0.f, 0.f}, {.9f, .6f, .1f}},
+            {{1.f, 0.f, 1.f}, {.9f, .6f, .1f}},
+            {{0.f, 0.f, 1.f}, {.9f, .6f, .1f}},
+            {{1.f, 0.f, 0.f}, {.9f, .6f, .1f}},
 
             // bottom face (red)
-            {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-            {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-            {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-            {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+            {{0.f, 1.f, 0.f}, {.8f, .1f, .1f}},
+            {{1.f, 1.f, 1.f}, {.8f, .1f, .1f}},
+            {{0.f, 1.f, 1.f}, {.8f, .1f, .1f}},
+            {{1.f, 1.f, 0.f}, {.8f, .1f, .1f}},
 
             // nose face (blue)
-            {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-            {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-            {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-            {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+            {{0.f, 0.f, 1.f}, {.1f, .1f, .8f}},
+            {{1.f, 1.f, 1.f}, {.1f, .1f, .8f}},
+            {{0.f, 1.f, 1.f}, {.1f, .1f, .8f}},
+            {{1.f, 0.f, 1.f}, {.1f, .1f, .8f}},
 
             // tail face (green)
-            {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-            {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-            {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-            {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+            {{0.f, 0.f, 0.f}, {.1f, .8f, .1f}},
+            {{1.f, 1.f, 0.f}, {.1f, .8f, .1f}},
+            {{0.f, 1.f, 0.f}, {.1f, .8f, .1f}},
+            {{1.f, 0.f, 0.f}, {.1f, .8f, .1f}},
         };
         for (auto& v : modelBuilder.vertices) {
             v.position += offset;
@@ -109,11 +109,21 @@ namespace vv {
 	void App::loadGameObjects() {
         std::shared_ptr<VvModel> vvModel = createCubeModel(vvDevice, { .0f, .0f, .0f });
 
-        auto cube = VvGameObject::createGameObject();
+        //for (int i = 0; i < 1000; ++i)
+        //{
+        //  auto cube1 = VvGameObject::createGameObject();
 
-        cube.model = vvModel;
-        cube.transform.translation = { 0.0f, 0.f, 2.5f };
-        cube.transform.scale = { 0.5f, 0.5f, 0.5f };
-        gameObjects.push_back(std::move(cube));
+        //  cube1.model = vvModel;
+        //  cube1.transform.translation = { 100.f * (i % 10 - 5), 100.f * ((i % 100) / 10 - 5), 100.f * (i / 100 - 5) };
+        //  cube1.transform.scale = { 100.f, 100.f, 100.f };
+        //  gameObjects.push_back(std::move(cube1));
+        //}
+
+          auto cube1 = VvGameObject::createGameObject();
+
+          cube1.model = vvModel;
+          cube1.transform.translation = { 0.f, 0.f, 0.f };
+          cube1.transform.scale = { 100.f, 100.f, 100.f };
+          gameObjects.push_back(std::move(cube1));
 	}
 }
