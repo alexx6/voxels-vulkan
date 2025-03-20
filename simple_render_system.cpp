@@ -173,7 +173,7 @@ namespace vv {
 			push.projectionView = camera.getProjection() * camera.getView();
 			push.transform = obj.transform.mat4();
 			push.vbPos = obj.transform.translation;
-			push.vbSize = obj.transform.scale;
+			push.vbSize = obj.transform.scale * glm::float32(10);
 
 			vkCmdPushConstants(
 				commandBuffer,

@@ -36,12 +36,19 @@ vec4 traceVoxelBox(out ivec3 vPos, out ivec3 vNormal)
 {
 	ivec3 size = push.vbSize;
 //	vec3 startPos = cameraPos + gl_FragCoord.z / gl_FragCoord.w * rayDir;
-	vec3 pos = startPos - push.vbPos;
+	vec3 pos = (startPos - push.vbPos) * 10;
 
 	ivec3 vdir = ivec3(greaterThan(rayDir, vec3(0.)));
-	ivec3 curVoxel = ivec3(pos - vec3(0.001));
+	ivec3 curVoxel = ivec3(floor(pos + rayDir * 0.1));
+
 	vec3 invRayDir = 1. / rayDir;
 	
+	if (!all(lessThan(abs(curVoxel * 2 + ivec3(1) - push.vbSize),  vec3(push.vbSize))))
+	{
+		pos = (vec3(matrices.inverseView[3]) - push.vbPos + rayDir * 0.3) * 10;
+		curVoxel = ivec3(floor(pos));
+	}
+
 //	if(all(equal(curVoxel, ivec3(0))))
 //	{
 //		gl_FragDepth = 1;
@@ -52,15 +59,15 @@ vec4 traceVoxelBox(out ivec3 vPos, out ivec3 vNormal)
 
 	//Used to get normals
 	ivec3 lastVoxel = curVoxel;
-	while (all(greaterThanEqual(curVoxel, ivec3(0))) && all(lessThan(curVoxel, size)))
+	while (all(lessThan(abs(curVoxel * 2 + ivec3(1) - push.vbSize),  vec3(push.vbSize))))
 	{
 		if (getVoxel(curVoxel) > 0.)
 		{
 			vNormal = curVoxel - lastVoxel;
 			vPos = curVoxel;
-
-			float distanceToCamera = length(pos + push.vbPos - vec3(matrices.inverseView[3]));
-			gl_FragDepth = (distanceToCamera - 0.1) / (1000.0 - 0.1);
+			
+			float distanceToCamera = length(pos / 10 + push.vbPos - vec3(matrices.inverseView[3]));
+			gl_FragDepth = max((distanceToCamera - 0.1) / (100.0 - 0.1), 0);
 
 //			return vec4((distanceToCamera - 0.1) / (1000.0 - 0.1));
 			return vec4(vec3(curVoxel) / push.vbSize, 1.0);
@@ -91,17 +98,23 @@ vec4 traceVoxelBox(out ivec3 vPos, out ivec3 vNormal)
 }
 
 void main() {
-	vec3 screenCoords = vec3(gl_FragCoord.xy, gl_FragCoord.z);
-
-	vec2 screenSize = vec2(1920., 1080.);
-  vec2 ndcXY = (screenCoords.xy / screenSize) * 2.0 - 1.0; 
-  float ndcZ = screenCoords.z * 2.0 - 1.0;
-  vec4 ndcCoords = vec4(ndcXY, ndcZ, 1.0);
-
-  vec4 eyeCoords = matrices.inverseProjection * ndcCoords;
+//	vec3 screenCoords = vec3(gl_FragCoord.xy, gl_FragCoord.z);
+//
+//	vec2 screenSize = vec2(1920., 1080.);
+//  vec2 ndcXY = (screenCoords.xy / screenSize) * 2.0 - 1.0; 
+//  float ndcZ = screenCoords.z * 2.0 - 1.0;
+//  vec4 ndcCoords = vec4(ndcXY, ndcZ, 1.0);
+//
+//  vec4 eyeCoords = matrices.inverseProjection * ndcCoords;
 //  eyeCoords /= eyeCoords.w;
-
-  vec4 worldCoords = matrices.inverseView * eyeCoords;
+//
+//  vec4 worldCoords = matrices.inverseView * eyeCoords;
+//
+//	outColor = vec4(eyeCoords.z);
+//	return;
+	
+//	outColor = vec4(1 / gl_FragCoord.w);
+//	return;
 
 	startPos = vec3(push.transform * vec4(fwpos, 1.0));
 	rayDir = normalize(startPos - vec3(matrices.inverseView[3]));

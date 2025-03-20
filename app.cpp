@@ -45,7 +45,7 @@ namespace vv {
 
       float aspect = vvRenderer.getAspectRatio();
       //camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
-      camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 1000.f);
+      camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.1f, 100.f);
 
 			if (auto commandBuffer = vvRenderer.beginFrame()) {
 				vvRenderer.beginSwapChainRenderPass(commandBuffer);
@@ -119,11 +119,11 @@ namespace vv {
         //  gameObjects.push_back(std::move(cube1));
         //}
 
-          auto cube1 = VvGameObject::createGameObject();
+        auto cube1 = VvGameObject::createGameObject();
 
-          cube1.model = vvModel;
-          cube1.transform.translation = { 0.f, 0.f, 0.f };
-          cube1.transform.scale = { 100.f, 100.f, 100.f };
-          gameObjects.push_back(std::move(cube1));
+        cube1.model = vvModel;
+        cube1.transform.translation = { 0.f, 0.f, 0.f };
+        cube1.transform.scale = { 10.f, 10.f, 10.f };
+        gameObjects.push_back(std::move(cube1));
 	}
 }
