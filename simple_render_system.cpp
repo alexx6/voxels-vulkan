@@ -172,8 +172,11 @@ namespace vv {
 			push.color = { obj.color };
 			push.projectionView = camera.getProjection() * camera.getView();
 			push.transform = obj.transform.mat4();
-			push.vbPos = obj.transform.translation;
-			push.vbSize = obj.transform.scale * glm::float32(10);
+			push.vbPos = glm::floor(obj.transform.translation);
+			push.vbSize = glm::floor(obj.transform.scale);
+			obj.transform.translation.x += 0.0001;
+			obj.transform.translation.y += 0.0002;
+			obj.transform.translation.z += 0.0003;
 
 			vkCmdPushConstants(
 				commandBuffer,

@@ -24,7 +24,7 @@ vec3 startPos;
 
 float getVoxel(ivec3 pos)
 {
-	if (pos.x + pos.y - pos.z <= 0)
+	if (pow(pos.x - 50, 2) + pow(pos.y - 50, 2) + pow(pos.z - 50, 2) < 2500)
 	{
 		return 1.;
 	}
@@ -36,17 +36,17 @@ vec4 traceVoxelBox(out ivec3 vPos, out ivec3 vNormal)
 {
 	ivec3 size = push.vbSize;
 //	vec3 startPos = cameraPos + gl_FragCoord.z / gl_FragCoord.w * rayDir;
-	vec3 pos = (startPos - push.vbPos) * 10;
+	vec3 pos = startPos - push.vbPos;
 
 	ivec3 vdir = ivec3(greaterThan(rayDir, vec3(0.)));
-	ivec3 curVoxel = ivec3(floor(pos + rayDir * 0.1));
+	ivec3 curVoxel = ivec3(floor(pos + rayDir * 0.001));
 
 	vec3 invRayDir = 1. / rayDir;
 	
 	if (!all(lessThan(abs(curVoxel * 2 + ivec3(1) - push.vbSize),  vec3(push.vbSize))))
 	{
-		pos = (vec3(matrices.inverseView[3]) - push.vbPos + rayDir * 0.3) * 10;
-		curVoxel = ivec3(floor(pos));
+		pos = vec3(matrices.inverseView[3]) - push.vbPos;
+		curVoxel = ivec3(floor(pos + rayDir * 0.001));
 	}
 
 //	if(all(equal(curVoxel, ivec3(0))))
@@ -66,8 +66,8 @@ vec4 traceVoxelBox(out ivec3 vPos, out ivec3 vNormal)
 			vNormal = curVoxel - lastVoxel;
 			vPos = curVoxel;
 			
-			float distanceToCamera = length(pos / 10 + push.vbPos - vec3(matrices.inverseView[3]));
-			gl_FragDepth = max((distanceToCamera - 0.1) / (100.0 - 0.1), 0);
+			float distanceToCamera = length(pos + push.vbPos - vec3(matrices.inverseView[3]));
+			gl_FragDepth = max(distanceToCamera / 10000.0, 0);
 
 //			return vec4((distanceToCamera - 0.1) / (1000.0 - 0.1));
 			return vec4(vec3(curVoxel) / push.vbSize, 1.0);
@@ -123,4 +123,5 @@ void main() {
 	ivec3 vPos;
 	ivec3 vNormal;
 	outColor = traceVoxelBox(vPos, vNormal);
+	outColor -= vec4(vec3(vNormal) / 5, 0);
 }

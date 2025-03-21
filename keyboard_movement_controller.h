@@ -23,7 +23,7 @@ namespace vv {
 
 		KeyMappings keys{};
 
-		float moveSpeed{ 10.f };
+		float moveSpeed{ 100.f };
 		float lookSpeed{ 5.f };
 	};
 }
