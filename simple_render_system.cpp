@@ -36,119 +36,14 @@ namespace vv {
 		alignas(16) glm::ivec3 vbSize;
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(VvDevice& device, VkRenderPass renderPass) : vvDevice{ device } {
-		createPipelineLayout();
-		createPipeline(renderPass);
-	}
+	SimpleRenderSystem::SimpleRenderSystem(VvDevice& device, VkRenderPass renderPass) : vvDevice{ device }, renderPass(renderPass) {}
 
 	SimpleRenderSystem::~SimpleRenderSystem() {
 		vkDestroyPipelineLayout(vvDevice.device(), pipelineLayout, nullptr);
 		//to do: destroy everything
 	}
 
-	void SimpleRenderSystem::createPipelineLayout() {
-		VkDescriptorSetLayoutBinding uboLayoutBinding{};
-		uboLayoutBinding.binding = 0;
-		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uboLayoutBinding.descriptorCount = 1;
-		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-		uboLayoutBinding.pImmutableSamplers = nullptr;
-
-		VkDescriptorSetLayoutCreateInfo layoutInfo{};
-		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 1;
-		layoutInfo.pBindings = &uboLayoutBinding;
-
-		VkDescriptorSetLayout descriptorSetLayout;
-		if (vkCreateDescriptorSetLayout(vvDevice.device(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create descriptor set layout!");
-		}
-
-		VkPushConstantRange pushConstantRange{};
-		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-		pushConstantRange.offset = 0;
-		pushConstantRange.size = sizeof(SimplePushConstantData);
-
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-		pipelineLayoutInfo.pushConstantRangeCount = 1;
-		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
-
-		if (vkCreatePipelineLayout(vvDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create pipeline layout");
-		}
-
-		//VkBuffer uniformBuffer;
-		VkBufferCreateInfo bufferInfo{};
-		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = sizeof(Matrices);  // Размер данных
-		bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;  // Использование как uniform-буфера
-		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;  // Режим доступа (обычно EXCLUSIVE)
-
-		if (vkCreateBuffer(vvDevice.device(), &bufferInfo, nullptr, &uniformBuffer) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create uniform buffer!");
-		}
-
-		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(vvDevice.device(), uniformBuffer, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-		uniformBufferMemory = VkDeviceMemory();
-		if (vkAllocateMemory(vvDevice.device(), &allocInfo, nullptr, &uniformBufferMemory) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to allocate uniform buffer memory!");
-		}
-
-		vkBindBufferMemory(vvDevice.device(), uniformBuffer, uniformBufferMemory, 0);
-
-		VkDescriptorPoolSize poolSize{};
-		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSize.descriptorCount = 1;  // Количество дескрипторов
-
-		VkDescriptorPoolCreateInfo poolInfo{};
-		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.poolSizeCount = 1;
-		poolInfo.pPoolSizes = &poolSize;
-		poolInfo.maxSets = 1;  // Максимальное количество дескрипторных наборов
-
-		VkDescriptorPool descriptorPool;
-		if (vkCreateDescriptorPool(vvDevice.device(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create descriptor pool!");
-		}
-
-		VkDescriptorSetAllocateInfo descriptorSetAllocInfo{};
-		descriptorSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		descriptorSetAllocInfo.descriptorPool = descriptorPool;
-		descriptorSetAllocInfo.descriptorSetCount = 1;
-		descriptorSetAllocInfo.pSetLayouts = &descriptorSetLayout;
-
-		if (vkAllocateDescriptorSets(vvDevice.device(), &descriptorSetAllocInfo, &descriptorSet) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to allocate descriptor set!");
-		}
-
-		VkDescriptorBufferInfo descriptorBufferInfo{};
-		descriptorBufferInfo.buffer = uniformBuffer;
-		descriptorBufferInfo.offset = 0;
-		descriptorBufferInfo.range = sizeof(Matrices);  // Размер данных
-
-		VkWriteDescriptorSet descriptorWrite{};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = descriptorSet;
-		descriptorWrite.dstBinding = 0;
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrite.descriptorCount = 1;
-		descriptorWrite.pBufferInfo = &descriptorBufferInfo;
-
-		vkUpdateDescriptorSets(vvDevice.device(), 1, &descriptorWrite, 0, nullptr);
-	}
-
-	void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) {
+	void SimpleRenderSystem::createPipeline() {
 		assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
 		PipelineConfigInfo pipelineConfig{};
@@ -165,7 +60,10 @@ namespace vv {
 
 	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<VvGameObject>& gameObjects, const VvCamera& camera) {
 		vvPipeline->bind(commandBuffer);
-		
+
+		bool first = true;
+
+		uint32_t setCounter = 0;
 
 		for (auto& obj : gameObjects) {
 			SimplePushConstantData push{};
@@ -174,9 +72,9 @@ namespace vv {
 			push.transform = obj.transform.mat4();
 			push.vbPos = glm::floor(obj.transform.translation);
 			push.vbSize = glm::floor(obj.transform.scale);
-			obj.transform.translation.x += 0.0001;
-			obj.transform.translation.y += 0.0002;
-			obj.transform.translation.z += 0.0003;
+			//obj.transform.translation.x += 0.0001;
+			//obj.transform.translation.y += 0.0002;
+			//obj.transform.translation.z += 0.0003;
 
 			vkCmdPushConstants(
 				commandBuffer,
@@ -196,11 +94,203 @@ namespace vv {
 			memcpy(data, &matrices, sizeof(matrices));
 			vkUnmapMemory(vvDevice.device(), uniformBufferMemory);
 
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, setCounter, 1, descriptorSets.data(), 0, nullptr);
 
-			obj.model->bind(commandBuffer);
+			if (first) 
+			{
+				obj.model->bind(commandBuffer);
+				first = false;
+			}
+
 			obj.model->draw(commandBuffer);
 
+			setCounter++;
 		};
+	}
+
+	void SimpleRenderSystem::createBuffers(std::vector<VoxelData>& voxelData)
+	{
+		//Create descriptor pool
+
+		VkDescriptorPoolSize poolSizes[] = {
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, voxelData.size() },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, voxelData.size() }
+		};
+
+		VkDescriptorPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = 2;
+		poolInfo.pPoolSizes = poolSizes;
+		poolInfo.maxSets = voxelData.size();
+		
+		VkDescriptorPool descriptorPool;
+		if (vkCreateDescriptorPool(vvDevice.device(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) 
+			throw std::runtime_error("Failed to create descriptor pool!");
+
+		//Create descriptor set layout with uniform buffer and storage buffer
+
+		VkDescriptorSetLayoutBinding uboLayoutBinding{};
+		uboLayoutBinding.binding = 0;
+		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboLayoutBinding.descriptorCount = 1;
+		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		uboLayoutBinding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding ssboLayoutBinding{};
+		ssboLayoutBinding.binding = 1;
+		ssboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		ssboLayoutBinding.descriptorCount = 1;
+		ssboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		ssboLayoutBinding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding layoutBindings[] = { uboLayoutBinding, ssboLayoutBinding };
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = 2;
+		layoutInfo.pBindings = layoutBindings;
+
+		VkDescriptorSetLayout descriptorSetLayout;
+		if (vkCreateDescriptorSetLayout(vvDevice.device(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create descriptor set layout!");
+		}
+
+		//Create pipeline layout & PushConstant
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts(voxelData.size(), descriptorSetLayout);
+
+		VkPushConstantRange pushConstantRange{};
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		pushConstantRange.offset = 0;
+		pushConstantRange.size = sizeof(SimplePushConstantData);
+
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = voxelData.size();
+		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+		pipelineLayoutInfo.pushConstantRangeCount = 1;
+		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+
+		if (vkCreatePipelineLayout(vvDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create pipeline layout");
+		}
+
+		//Allocate DescriptorSets
+		
+		VkDescriptorSetAllocateInfo descriptorSetAllocInfo{};
+		descriptorSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		descriptorSetAllocInfo.descriptorPool = descriptorPool;
+		descriptorSetAllocInfo.descriptorSetCount = voxelData.size();
+		descriptorSetAllocInfo.pSetLayouts = descriptorSetLayouts.data();
+		
+		descriptorSets.resize(voxelData.size());
+
+		if (vkAllocateDescriptorSets(vvDevice.device(), &descriptorSetAllocInfo, descriptorSets.data()) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to allocate descriptor set!");
+		}
+
+		//Allocate memory for uniform buffer (matrices)
+
+		VkBufferCreateInfo bufferInfo{};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = sizeof(Matrices);
+		bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		if (vkCreateBuffer(vvDevice.device(), &bufferInfo, nullptr, &uniformBuffer) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create uniform buffer!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetBufferMemoryRequirements(vvDevice.device(), uniformBuffer, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+		if (vkAllocateMemory(vvDevice.device(), &allocInfo, nullptr, &uniformBufferMemory) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to allocate uniform buffer memory!");
+		}
+
+		vkBindBufferMemory(vvDevice.device(), uniformBuffer, uniformBufferMemory, 0);
+
+		//Write all buffers to descriptor sets
+
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+		for (int i = 0; i < voxelData.size(); ++i)
+		{
+			//Write same uniform buffer to all sets because we modify it in game loop
+			VkDescriptorBufferInfo uniformDescriptorBufferInfo{};
+			uniformDescriptorBufferInfo.buffer = uniformBuffer;
+			uniformDescriptorBufferInfo.offset = 0;
+			uniformDescriptorBufferInfo.range = sizeof(Matrices);
+
+			VkWriteDescriptorSet uniformDescriptorWrite{};
+			uniformDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			uniformDescriptorWrite.dstSet = descriptorSets[i];
+			uniformDescriptorWrite.dstBinding = 0;
+			uniformDescriptorWrite.dstArrayElement = 0;
+			uniformDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			uniformDescriptorWrite.descriptorCount = 1;
+			uniformDescriptorWrite.pBufferInfo = &uniformDescriptorBufferInfo;
+			
+
+
+			//Allocate and write individual voxel data for each voxel volume
+			VkBufferCreateInfo ssboInfo{};
+			ssboInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+			ssboInfo.size = sizeof(uint32_t) * voxelData[i].data.size();
+			ssboInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+			ssboInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+			
+			//We don't need to modify it at the moment
+			VkBuffer ssboBuffer;
+			if (vkCreateBuffer(vvDevice.device(), &ssboInfo, nullptr, &ssboBuffer) != VK_SUCCESS) {
+				throw std::runtime_error("Failed to create uniform buffer!");
+			}
+
+			VkMemoryRequirements ssboMemRequirements;
+			vkGetBufferMemoryRequirements(vvDevice.device(), ssboBuffer, &ssboMemRequirements);
+
+			VkMemoryAllocateInfo ssboAllocInfo{};
+			ssboAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+			ssboAllocInfo.allocationSize = ssboMemRequirements.size;
+			ssboAllocInfo.memoryTypeIndex = findMemoryType(ssboMemRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+			VkDeviceMemory ssboBufferMemory;
+			if (vkAllocateMemory(vvDevice.device(), &ssboAllocInfo, nullptr, &ssboBufferMemory) != VK_SUCCESS) {
+				throw std::runtime_error("Failed to allocate uniform buffer memory!");
+			}
+
+			vkBindBufferMemory(vvDevice.device(), ssboBuffer, ssboBufferMemory, 0);
+
+			VkDescriptorBufferInfo ssboDescriptorBufferInfo{};
+			ssboDescriptorBufferInfo.buffer = ssboBuffer;
+			ssboDescriptorBufferInfo.offset = 0;
+			ssboDescriptorBufferInfo.range = sizeof(uint32_t) * voxelData[i].data.size();
+
+			VkWriteDescriptorSet ssboDescriptorWrite{};
+			ssboDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			ssboDescriptorWrite.dstSet = descriptorSets[i];
+			ssboDescriptorWrite.dstBinding = 1;
+			ssboDescriptorWrite.dstArrayElement = 0;
+			ssboDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			ssboDescriptorWrite.descriptorCount = 1;
+			ssboDescriptorWrite.pBufferInfo = &ssboDescriptorBufferInfo;
+
+			void* ssboMappedData;
+			vkMapMemory(vvDevice.device(), ssboBufferMemory, 0, sizeof(uint32_t) * voxelData[i].data.size(), 0, &ssboMappedData);
+			memcpy(ssboMappedData, voxelData[i].data.data(), sizeof(uint32_t) * voxelData[i].data.size());
+			vkUnmapMemory(vvDevice.device(), ssboBufferMemory);
+
+			//Push writes
+			descriptorWrites.push_back(uniformDescriptorWrite);
+			descriptorWrites.push_back(ssboDescriptorWrite);
+		}
+
+		vkUpdateDescriptorSets(vvDevice.device(), descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+
+		createPipeline();
 	}
 }

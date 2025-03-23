@@ -24,6 +24,12 @@ namespace vv {
 		}
  	};
 
+	struct VoxelData {
+		glm::ivec3 pos{};
+		glm::ivec3 size{};
+		std::vector<uint32_t> data;
+	};
+
 
 	class VvGameObject {
 	public:
@@ -44,7 +50,7 @@ namespace vv {
 		std::shared_ptr<VvModel> model{};
 		glm::vec3 color{};
 		TransformComponent transform{};
-
+		std::vector<uint32_t> voxels;
 	private:
 		VvGameObject(id_t objId) : id{ objId } {};
 

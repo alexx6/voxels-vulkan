@@ -2,9 +2,9 @@
 #include <iostream>
 #include <stdexcept>
 #include <array>
-#include "simple_render_system.h"
 #include "vv_camera.h"
 #include "keyboard_movement_controller.h"
+#include <fstream>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -15,7 +15,6 @@
 
 namespace vv {
 	App::App() {
-		loadGameObjects();
 	}
 
 	App::~App() {
@@ -23,15 +22,18 @@ namespace vv {
 
 	void App::run() {
 		SimpleRenderSystem simpleRenderSystem{ vvDevice, vvRenderer.getSwapChainRenderPass() };
-        VvCamera camera{};
-        //camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.5f, 0.f, 1.f));
-        //camera.setViewTarget(glm::vec3(-1.f, -2.f, 2.f), glm::vec3(0.f, 0.f, 2.5f));
 
-        auto viewerObject = VvGameObject::createGameObject();
-        viewerObject.transform.translation = glm::vec3(0.f, 10.f, -5.f);
-        KeyboardMovementController cameraController{};
+    loadGameObjects(simpleRenderSystem);
 
-        auto currentTime = std::chrono::high_resolution_clock::now();
+    VvCamera camera{};
+    //camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.5f, 0.f, 1.f));
+    //camera.setViewTarget(glm::vec3(-1.f, -2.f, 2.f), glm::vec3(0.f, 0.f, 2.5f));
+
+    auto viewerObject = VvGameObject::createGameObject();
+    viewerObject.transform.translation = glm::vec3(0.f, 10.f, -5.f);
+    KeyboardMovementController cameraController{};
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
 
 		while (!vvWindow.shouldClose()) {
 			glfwPollEvents();
@@ -106,18 +108,100 @@ namespace vv {
         return std::make_unique<VvModel>(device, modelBuilder);
     }
 
-	void App::loadGameObjects() {
+    std::vector<VoxelData> loadVoxelModel()
+    {
+      std::ifstream f;
+      f.open("./shaders/test_model.qb", std::ios::in | std::ios::binary);
+
+      uint32_t version;
+      f.read((char*)&version, sizeof(version));
+
+      uint32_t colorFormat;
+      f.read((char*)&colorFormat, sizeof(colorFormat));
+
+      uint32_t zAxisOrientation;
+      f.read((char*)&zAxisOrientation, sizeof(zAxisOrientation));
+
+      uint32_t compressed;
+      f.read((char*)&compressed, sizeof(compressed));
+
+      uint32_t visibilityMaskEncoded;
+      f.read((char*)&visibilityMaskEncoded, sizeof(visibilityMaskEncoded));
+
+      uint32_t numMatrices;
+      f.read((char*)&numMatrices, sizeof(numMatrices));
+
+      std::vector<VoxelData> resultData(numMatrices);
+
+      for (uint32_t i = 0; i < numMatrices; ++i)
+      {
+        char matrixNameLength;
+        f.read((char*)&matrixNameLength, sizeof(matrixNameLength));
+
+        char* matrixName = new char[matrixNameLength + 1];
+        f.read(matrixName, matrixNameLength);
+
+        uint32_t sizeX;
+        f.read((char*)&sizeX, sizeof(sizeX));
+
+        uint32_t sizeY;
+        f.read((char*)&sizeY, sizeof(sizeY));
+
+        uint32_t sizeZ;
+        f.read((char*)&sizeZ, sizeof(sizeZ));
+
+        int32_t posX;
+        f.read((char*)&posX, sizeof(posX));
+
+        int32_t posY;
+        f.read((char*)&posY, sizeof(posY));
+
+        int32_t posZ;
+        f.read((char*)&posZ, sizeof(posZ));
+
+        std::vector<uint32_t> voxels(sizeX * sizeY * sizeZ);
+
+        for (uint32_t z = 0; z < sizeZ; ++z)
+        {
+          for (uint32_t y = 0; y < sizeY; ++y)
+          {
+            for (uint32_t x = 0; x < sizeX; ++x)
+            {
+              f.read((char*)&voxels[x + y * sizeX + z * sizeX * sizeY], sizeof(uint32_t));
+            }
+          }
+        }
+
+        VoxelData vd
+        {
+          glm::ivec3{posX, posY, posZ},
+          glm::ivec3{sizeX, sizeY, sizeZ},
+          voxels
+        };
+
+        resultData[i] = vd;
+      }
+
+      return resultData;
+    }
+
+	void App::loadGameObjects(SimpleRenderSystem &simpleRenderSystem) {
         std::shared_ptr<VvModel> vvModel = createCubeModel(vvDevice, { .0f, .0f, .0f });
 
-        //for (int i = 0; i < 1000; ++i)
-        //{
-        //  auto cube1 = VvGameObject::createGameObject();
+        std::vector<VoxelData> vd = loadVoxelModel();
 
-        //  cube1.model = vvModel;
-        //  cube1.transform.translation = { 100.f * (i % 10 - 5), 100.f * ((i % 100) / 10 - 5), 100.f * (i / 100 - 5) };
-        //  cube1.transform.scale = { 100.f, 100.f, 100.f };
-        //  gameObjects.push_back(std::move(cube1));
-        //}
+        for (int i = 0; i < vd.size(); ++i)
+        {
+          auto cube1 = VvGameObject::createGameObject();
+
+          cube1.model = vvModel;
+          //cube1.voxels = vd[i].data;
+          cube1.transform.translation = vd[i].pos;
+          cube1.transform.scale = vd[i].size;
+          gameObjects.push_back(std::move(cube1));
+        }
+
+        simpleRenderSystem.createBuffers(vd);
 
         //auto cube1 = VvGameObject::createGameObject();
 
@@ -126,11 +210,11 @@ namespace vv {
         //cube1.transform.scale = { 10.f, 10.f, 10.f };
         //gameObjects.push_back(std::move(cube1));
 
-        auto cube2 = VvGameObject::createGameObject();
+        //auto cube2 = VvGameObject::createGameObject();
 
-        cube2.model = vvModel;
-        cube2.transform.translation = { 10.f, 0.f, 0.f };
-        cube2.transform.scale = { 100.f, 100.f, 100.f };
-        gameObjects.push_back(std::move(cube2));
+        //cube2.model = vvModel;
+        //cube2.transform.translation = { 10.f, 0.f, 0.f };
+        //cube2.transform.scale = { 100.f, 100.f, 100.f };
+        //gameObjects.push_back(std::move(cube2));
 	}
 }

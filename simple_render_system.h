@@ -17,11 +17,13 @@ namespace vv {
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
 		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
+		void createBuffers(std::vector<VoxelData>& voxelData);
 		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<VvGameObject> &gameObjects, const VvCamera &camera);
 
 	private:
 		void createPipelineLayout();
-		void createPipeline(VkRenderPass renderPass);
+		void createPipeline();
+		VkRenderPass renderPass;
 		VkBuffer uniformBuffer;
 		VkDeviceMemory uniformBufferMemory;
 		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -29,6 +31,6 @@ namespace vv {
 
 		std::unique_ptr<VvPipeline> vvPipeline;
 		VkPipelineLayout pipelineLayout;
-		VkDescriptorSet descriptorSet;
+		std::vector<VkDescriptorSet> descriptorSets;
 	};
 };

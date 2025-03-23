@@ -18,18 +18,95 @@ layout(set = 0, binding = 0) uniform Matrices {
 		mat4 inverseProjection;
 } matrices;
 
+layout(binding = 1) buffer StorageBuffer {
+    uint data[];
+} ssbo;
+
 vec3 rayDir;
 vec3 cameraPos;
 vec3 startPos;
 
-float getVoxel(ivec3 pos)
+uint getVoxel(ivec3 pos)
 {
-	if (pow(pos.x - 50, 2) + pow(pos.y - 50, 2) + pow(pos.z - 50, 2) < 2500)
+//	return 0;
+	return ssbo.data[pos.x + pos.y * push.vbSize.x + pos.z * push.vbSize.x * push.vbSize.y];
+
+//	if (pow(pos.x - push.vbSize.x / 2, 2) + pow(pos.y - push.vbSize.y / 2, 2) + pow(pos.z - push.vbSize.z / 2, 2) < pow(push.vbSize.x / 2, 2))
+//	{
+//		return 1.;
+//	}
+//
+//	return 0.;
+}
+
+vec3 drawWireframe()
+{
+	ivec3 size = push.vbSize;
+	vec3 pos = startPos - push.vbPos;
+	float e = 0.2;
+
+	if (pos.x < e && pos.y < e)
 	{
-		return 1.;
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.x < e && pos.z < e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.y < e && pos.z < e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.x > size.x - e && pos.y > size.y - e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.x > size.x - e && pos.z > size.z - e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.y > size.y - e && pos.z > size.z - e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.x < e && pos.y > size.y - e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.x > size.x - e && pos.y < e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.x < e && pos.z > size.z - e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.x > size.z - e && pos.z < e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.y < e && pos.z > size.z - e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
+	}
+	if (pos.y > size.y - e && pos.z < e)
+	{
+		gl_FragDepth = 0.;
+		return vec3(1.);
 	}
 
-	return 0.;
+	return vec3(0.);
 }
 
 vec4 traceVoxelBox(out ivec3 vPos, out ivec3 vNormal)
@@ -61,7 +138,9 @@ vec4 traceVoxelBox(out ivec3 vPos, out ivec3 vNormal)
 	ivec3 lastVoxel = curVoxel;
 	while (all(lessThan(abs(curVoxel * 2 + ivec3(1) - push.vbSize),  vec3(push.vbSize))))
 	{
-		if (getVoxel(curVoxel) > 0.)
+		uint voxelColor = getVoxel(curVoxel);
+
+		if (voxelColor > 0)
 		{
 			vNormal = curVoxel - lastVoxel;
 			vPos = curVoxel;
@@ -70,7 +149,7 @@ vec4 traceVoxelBox(out ivec3 vPos, out ivec3 vNormal)
 			gl_FragDepth = max(distanceToCamera / 10000.0, 0);
 
 //			return vec4((distanceToCamera - 0.1) / (1000.0 - 0.1));
-			return vec4(vec3(curVoxel) / push.vbSize, 1.0);
+			return vec4((voxelColor) & 0xFF, (voxelColor >> 8) & 0xFF, (voxelColor >> 16) & 0xFF, (voxelColor >> 24) & 0xFF) / 255.f;
 		}
 
 		lastVoxel = curVoxel;
@@ -122,6 +201,8 @@ void main() {
 //	outColor = vec4(startPos, 1.);
 	ivec3 vPos;
 	ivec3 vNormal;
+//	outColor = vec4(1);
 	outColor = traceVoxelBox(vPos, vNormal);
-	outColor -= vec4(vec3(vNormal) / 5, 0);
+//	outColor += vec4(drawWireframe(), 0.0);
+//	outColor += vec4(vec3(vNormal) / 10, 0);
 }

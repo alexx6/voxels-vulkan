@@ -7,6 +7,7 @@
 #include <vector>
 #include "vv_model.h"
 #include "vv_game_object.h"
+#include "simple_render_system.h"
 
 namespace vv {
 	class App {
@@ -22,7 +23,7 @@ namespace vv {
 
 		void run();
 	private:
-		void loadGameObjects();
+		void loadGameObjects(SimpleRenderSystem& simpleRenderSystem);
 
 		VvWindow vvWindow{ WIDTH, HEIGHT, "Voxel Engine" };
 		VvDevice vvDevice{ vvWindow };
