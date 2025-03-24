@@ -9,7 +9,7 @@ layout(location = 0) out vec3 fragColor;
 layout(push_constant) uniform Push {
 	mat4 transform;
 	mat4 projectionView;
-	vec3 color;
+	uint dataOffset;
 	ivec3 vbPos;
 	ivec3 vbSize;
 } push;

@@ -31,7 +31,7 @@ namespace vv {
 	struct SimplePushConstantData {
 		glm::mat4 transform{ 1.f };
 		glm::mat4 projectionView{ 1.f };
-		alignas(16) glm::vec3 color;
+		alignas(16) glm::uint32_t dataOffset;
 		alignas(16) glm::ivec3 vbPos;
 		alignas(16) glm::ivec3 vbSize;
 	};
@@ -63,11 +63,9 @@ namespace vv {
 
 		bool first = true;
 
-		uint32_t setCounter = 0;
-
 		for (auto& obj : gameObjects) {
 			SimplePushConstantData push{};
-			push.color = { obj.color };
+			push.dataOffset = obj.dataOffset;
 			push.projectionView = camera.getProjection() * camera.getView();
 			push.transform = obj.transform.mat4();
 			push.vbPos = glm::floor(obj.transform.translation);
@@ -94,7 +92,7 @@ namespace vv {
 			memcpy(data, &matrices, sizeof(matrices));
 			vkUnmapMemory(vvDevice.device(), uniformBufferMemory);
 
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, setCounter, 1, descriptorSets.data(), 0, nullptr);
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
 			if (first) 
 			{
@@ -103,8 +101,6 @@ namespace vv {
 			}
 
 			obj.model->draw(commandBuffer);
-
-			setCounter++;
 		};
 	}
 
@@ -113,15 +109,15 @@ namespace vv {
 		//Create descriptor pool
 
 		VkDescriptorPoolSize poolSizes[] = {
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, voxelData.size() },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, voxelData.size() }
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 }
 		};
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = 2;
 		poolInfo.pPoolSizes = poolSizes;
-		poolInfo.maxSets = voxelData.size();
+		poolInfo.maxSets = 1;
 		
 		VkDescriptorPool descriptorPool;
 		if (vkCreateDescriptorPool(vvDevice.device(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) 
@@ -156,8 +152,6 @@ namespace vv {
 		}
 
 		//Create pipeline layout & PushConstant
-		std::vector<VkDescriptorSetLayout> descriptorSetLayouts(voxelData.size(), descriptorSetLayout);
-
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		pushConstantRange.offset = 0;
@@ -165,8 +159,8 @@ namespace vv {
 
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = voxelData.size();
-		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+		pipelineLayoutInfo.setLayoutCount = 1;
+		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -179,12 +173,10 @@ namespace vv {
 		VkDescriptorSetAllocateInfo descriptorSetAllocInfo{};
 		descriptorSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		descriptorSetAllocInfo.descriptorPool = descriptorPool;
-		descriptorSetAllocInfo.descriptorSetCount = voxelData.size();
-		descriptorSetAllocInfo.pSetLayouts = descriptorSetLayouts.data();
+		descriptorSetAllocInfo.descriptorSetCount = 1;
+		descriptorSetAllocInfo.pSetLayouts = &descriptorSetLayout;
 		
-		descriptorSets.resize(voxelData.size());
-
-		if (vkAllocateDescriptorSets(vvDevice.device(), &descriptorSetAllocInfo, descriptorSets.data()) != VK_SUCCESS) {
+		if (vkAllocateDescriptorSets(vvDevice.device(), &descriptorSetAllocInfo, &descriptorSet) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to allocate descriptor set!");
 		}
 
@@ -218,76 +210,81 @@ namespace vv {
 
 		std::vector<VkWriteDescriptorSet> descriptorWrites;
 
-		for (int i = 0; i < voxelData.size(); ++i)
+		//Write uniform buffer
+		VkDescriptorBufferInfo uniformDescriptorBufferInfo{};
+		uniformDescriptorBufferInfo.buffer = uniformBuffer;
+		uniformDescriptorBufferInfo.offset = 0;
+		uniformDescriptorBufferInfo.range = sizeof(Matrices);
+
+		VkWriteDescriptorSet uniformDescriptorWrite{};
+		uniformDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		uniformDescriptorWrite.dstSet = descriptorSet;
+		uniformDescriptorWrite.dstBinding = 0;
+		uniformDescriptorWrite.dstArrayElement = 0;
+		uniformDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniformDescriptorWrite.descriptorCount = 1;
+		uniformDescriptorWrite.pBufferInfo = &uniformDescriptorBufferInfo;
+
+		//Need to write memory manager later
+		uint32_t totalSize = 0;
+		for (VoxelData& vd : voxelData)
+			totalSize += vd.data.size();
+
+		VkBufferCreateInfo ssboInfo{};
+		ssboInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		ssboInfo.size = (uint64_t)sizeof(uint32_t) * totalSize;
+		ssboInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		ssboInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		//We don't need to modify it at the moment
+		VkBuffer ssboBuffer;
+		if (vkCreateBuffer(vvDevice.device(), &ssboInfo, nullptr, &ssboBuffer) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create uniform buffer!");
+		}
+
+		VkMemoryRequirements ssboMemRequirements;
+		vkGetBufferMemoryRequirements(vvDevice.device(), ssboBuffer, &ssboMemRequirements);
+
+		VkMemoryAllocateInfo ssboAllocInfo{};
+		ssboAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		ssboAllocInfo.allocationSize = ssboMemRequirements.size;
+		ssboAllocInfo.memoryTypeIndex = findMemoryType(ssboMemRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+		VkDeviceMemory ssboBufferMemory;
+		if (vkAllocateMemory(vvDevice.device(), &ssboAllocInfo, nullptr, &ssboBufferMemory) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to allocate uniform buffer memory!");
+		}
+
+		vkBindBufferMemory(vvDevice.device(), ssboBuffer, ssboBufferMemory, 0);
+
+		VkDescriptorBufferInfo ssboDescriptorBufferInfo{};
+		ssboDescriptorBufferInfo.buffer = ssboBuffer;
+		ssboDescriptorBufferInfo.offset = 0;
+		ssboDescriptorBufferInfo.range = uint64_t(sizeof(uint32_t)) * totalSize;
+
+		VkWriteDescriptorSet ssboDescriptorWrite{};
+		ssboDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		ssboDescriptorWrite.dstSet = descriptorSet;
+		ssboDescriptorWrite.dstBinding = 1;
+		ssboDescriptorWrite.dstArrayElement = 0;
+		ssboDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		ssboDescriptorWrite.descriptorCount = 1;
+		ssboDescriptorWrite.pBufferInfo = &ssboDescriptorBufferInfo;
+
+		uint32_t dataOffset = 0;
+		for (uint32_t i = 0; i < voxelData.size(); ++i)
 		{
-			//Write same uniform buffer to all sets because we modify it in game loop
-			VkDescriptorBufferInfo uniformDescriptorBufferInfo{};
-			uniformDescriptorBufferInfo.buffer = uniformBuffer;
-			uniformDescriptorBufferInfo.offset = 0;
-			uniformDescriptorBufferInfo.range = sizeof(Matrices);
-
-			VkWriteDescriptorSet uniformDescriptorWrite{};
-			uniformDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			uniformDescriptorWrite.dstSet = descriptorSets[i];
-			uniformDescriptorWrite.dstBinding = 0;
-			uniformDescriptorWrite.dstArrayElement = 0;
-			uniformDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			uniformDescriptorWrite.descriptorCount = 1;
-			uniformDescriptorWrite.pBufferInfo = &uniformDescriptorBufferInfo;
-			
-
-
-			//Allocate and write individual voxel data for each voxel volume
-			VkBufferCreateInfo ssboInfo{};
-			ssboInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-			ssboInfo.size = sizeof(uint32_t) * voxelData[i].data.size();
-			ssboInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-			ssboInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-			
-			//We don't need to modify it at the moment
-			VkBuffer ssboBuffer;
-			if (vkCreateBuffer(vvDevice.device(), &ssboInfo, nullptr, &ssboBuffer) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to create uniform buffer!");
-			}
-
-			VkMemoryRequirements ssboMemRequirements;
-			vkGetBufferMemoryRequirements(vvDevice.device(), ssboBuffer, &ssboMemRequirements);
-
-			VkMemoryAllocateInfo ssboAllocInfo{};
-			ssboAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-			ssboAllocInfo.allocationSize = ssboMemRequirements.size;
-			ssboAllocInfo.memoryTypeIndex = findMemoryType(ssboMemRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-			VkDeviceMemory ssboBufferMemory;
-			if (vkAllocateMemory(vvDevice.device(), &ssboAllocInfo, nullptr, &ssboBufferMemory) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to allocate uniform buffer memory!");
-			}
-
-			vkBindBufferMemory(vvDevice.device(), ssboBuffer, ssboBufferMemory, 0);
-
-			VkDescriptorBufferInfo ssboDescriptorBufferInfo{};
-			ssboDescriptorBufferInfo.buffer = ssboBuffer;
-			ssboDescriptorBufferInfo.offset = 0;
-			ssboDescriptorBufferInfo.range = sizeof(uint32_t) * voxelData[i].data.size();
-
-			VkWriteDescriptorSet ssboDescriptorWrite{};
-			ssboDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			ssboDescriptorWrite.dstSet = descriptorSets[i];
-			ssboDescriptorWrite.dstBinding = 1;
-			ssboDescriptorWrite.dstArrayElement = 0;
-			ssboDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			ssboDescriptorWrite.descriptorCount = 1;
-			ssboDescriptorWrite.pBufferInfo = &ssboDescriptorBufferInfo;
-
 			void* ssboMappedData;
-			vkMapMemory(vvDevice.device(), ssboBufferMemory, 0, sizeof(uint32_t) * voxelData[i].data.size(), 0, &ssboMappedData);
-			memcpy(ssboMappedData, voxelData[i].data.data(), sizeof(uint32_t) * voxelData[i].data.size());
+			vkMapMemory(vvDevice.device(), ssboBufferMemory, (uint64_t)sizeof(uint32_t) * dataOffset, (uint64_t)sizeof(uint32_t) * voxelData[i].data.size(), 0, &ssboMappedData);
+			memcpy(ssboMappedData, voxelData[i].data.data(), (uint64_t)sizeof(uint32_t) * voxelData[i].data.size());
 			vkUnmapMemory(vvDevice.device(), ssboBufferMemory);
 
-			//Push writes
-			descriptorWrites.push_back(uniformDescriptorWrite);
-			descriptorWrites.push_back(ssboDescriptorWrite);
+			dataOffset += voxelData[i].data.size();
 		}
+
+		//Push writes
+		descriptorWrites.push_back(uniformDescriptorWrite);
+		descriptorWrites.push_back(ssboDescriptorWrite);
 
 		vkUpdateDescriptorSets(vvDevice.device(), descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 

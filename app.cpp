@@ -161,16 +161,17 @@ namespace vv {
 
         std::vector<uint32_t> voxels(sizeX * sizeY * sizeZ);
 
-        for (uint32_t z = 0; z < sizeZ; ++z)
-        {
-          for (uint32_t y = 0; y < sizeY; ++y)
-          {
-            for (uint32_t x = 0; x < sizeX; ++x)
-            {
-              f.read((char*)&voxels[x + y * sizeX + z * sizeX * sizeY], sizeof(uint32_t));
-            }
-          }
-        }
+        f.read((char*)voxels.data(), sizeof(uint32_t) * sizeX * sizeY * sizeZ);
+
+        //for (uint32_t z = 0; z < sizeZ; ++z)
+        //{
+        //  for (uint32_t y = 0; y < sizeY; ++y)
+        //  {
+        //    for (uint32_t x = 0; x < sizeX; ++x)
+        //    {
+        //    }
+        //  }
+        //}
 
         VoxelData vd
         {
@@ -190,15 +191,18 @@ namespace vv {
 
         std::vector<VoxelData> vd = loadVoxelModel();
 
+        uint32_t dataOffset = 0;
         for (int i = 0; i < vd.size(); ++i)
         {
           auto cube1 = VvGameObject::createGameObject();
 
           cube1.model = vvModel;
-          //cube1.voxels = vd[i].data;
           cube1.transform.translation = vd[i].pos;
           cube1.transform.scale = vd[i].size;
+          cube1.dataOffset = dataOffset;
           gameObjects.push_back(std::move(cube1));
+
+          dataOffset += vd[i].data.size();
         }
 
         simpleRenderSystem.createBuffers(vd);

@@ -31,6 +31,6 @@ namespace vv {
 
 		std::unique_ptr<VvPipeline> vvPipeline;
 		VkPipelineLayout pipelineLayout;
-		std::vector<VkDescriptorSet> descriptorSets;
+		VkDescriptorSet descriptorSet;
 	};
 };

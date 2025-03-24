@@ -7,7 +7,7 @@ layout (location = 1) in vec3 fwpos;
 layout(push_constant) uniform Push {
 	mat4 transform;
 	mat4 projectionView;
-	vec3 color;
+	uint dataOffset;
 	ivec3 vbPos;
 	ivec3 vbSize;
 } push;
@@ -29,7 +29,7 @@ vec3 startPos;
 uint getVoxel(ivec3 pos)
 {
 //	return 0;
-	return ssbo.data[pos.x + pos.y * push.vbSize.x + pos.z * push.vbSize.x * push.vbSize.y];
+	return ssbo.data[push.dataOffset + pos.x + pos.y * push.vbSize.x + pos.z * push.vbSize.x * push.vbSize.y];
 
 //	if (pow(pos.x - push.vbSize.x / 2, 2) + pow(pos.y - push.vbSize.y / 2, 2) + pow(pos.z - push.vbSize.z / 2, 2) < pow(push.vbSize.x / 2, 2))
 //	{
