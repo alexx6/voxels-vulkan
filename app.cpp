@@ -5,6 +5,7 @@
 #include "vv_camera.h"
 #include "keyboard_movement_controller.h"
 #include <fstream>
+#include "VoxelTree.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -189,7 +190,11 @@ namespace vv {
 	void App::loadGameObjects(SimpleRenderSystem &simpleRenderSystem) {
         std::shared_ptr<VvModel> vvModel = createCubeModel(vvDevice, { .0f, .0f, .0f });
 
-        std::vector<VoxelData> vd = loadVoxelModel();
+        //std::vector<VoxelData> vd = loadVoxelModel();
+        std::vector<VoxelData> vd = { VoxelData() };
+        vd[0].pos = glm::ivec3(0);
+        vd[0].size = glm::ivec3(256);
+        vd[0].data = VoxelTree::genRandomGrid();
 
         uint32_t dataOffset = 0;
         for (int i = 0; i < vd.size(); ++i)
