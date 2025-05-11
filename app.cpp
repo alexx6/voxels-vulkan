@@ -48,7 +48,7 @@ namespace vv {
 
       float aspect = vvRenderer.getAspectRatio();
       //camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
-      camera.setPerspectiveProjection(glm::radians(50.f), aspect, 0.0f, 10000.f);
+      camera.setPerspectiveProjection(glm::radians(60.f), aspect, 0.0f, 2000000.f);
 
 			if (auto commandBuffer = vvRenderer.beginFrame()) {
 				vvRenderer.beginSwapChainRenderPass(commandBuffer);
@@ -109,10 +109,10 @@ namespace vv {
         return std::make_unique<VvModel>(device, modelBuilder);
     }
 
-    std::vector<VoxelData> loadVoxelModel()
+    std::vector<uint32_t> loadVoxelModel()
     {
       std::ifstream f;
-      f.open("./shaders/test_model.qb", std::ios::in | std::ios::binary);
+      f.open("./rock.qb", std::ios::in | std::ios::binary);
 
       uint32_t version;
       f.read((char*)&version, sizeof(version));
@@ -132,7 +132,7 @@ namespace vv {
       uint32_t numMatrices;
       f.read((char*)&numMatrices, sizeof(numMatrices));
 
-      std::vector<VoxelData> resultData(numMatrices);
+      std::vector<std::vector<uint32_t>> resultData(numMatrices);
 
       for (uint32_t i = 0; i < numMatrices; ++i)
       {
@@ -162,7 +162,59 @@ namespace vv {
 
         std::vector<uint32_t> voxels(sizeX * sizeY * sizeZ);
 
-        f.read((char*)voxels.data(), sizeof(uint32_t) * sizeX * sizeY * sizeZ);
+        if (compressed == 0)
+        {
+          f.read((char*)voxels.data(), sizeof(uint32_t) * sizeX * sizeY * sizeZ);
+        }
+        else 
+        {
+          uint32_t x = 0;
+          uint32_t y = 0;
+          uint32_t z = 0;
+          uint32_t data = 0;
+          uint32_t index = 0;
+          uint32_t count = 0;
+          const uint32_t CODEFLAG = 2;
+          const uint32_t NEXTSLICEFLAG = 6;
+
+          while (z < sizeZ)
+          {
+            index = 0;
+
+            while (true) 
+            {
+              f.read((char*)&data, sizeof(data));
+
+              if (data == NEXTSLICEFLAG)
+              {
+                break;
+              }
+              else if (data == CODEFLAG) 
+              {
+                f.read((char*)&count, sizeof(count));
+                f.read((char*)&data, sizeof(data));
+
+                for (uint32_t j = 0; j < count; ++j)
+                {
+                  x = index % sizeX;
+                  y = index / sizeX;
+
+                  index++;
+                  voxels[x + y * sizeX + z * sizeX * sizeY] = data;
+                }
+              }
+              else
+              {
+                x = index % sizeX;
+                y = index / sizeX;
+                index++;
+                voxels[x + y * sizeX + z * sizeX * sizeY] = data;
+              }
+            }
+
+            ++z;
+          }
+        }
 
         //for (uint32_t z = 0; z < sizeZ; ++z)
         //{
@@ -174,27 +226,37 @@ namespace vv {
         //  }
         //}
 
-        VoxelData vd
-        {
-          glm::ivec3{posX, posY, posZ},
-          glm::ivec3{sizeX, sizeY, sizeZ},
-          voxels
-        };
+        //VoxelData vd
+        //{
+        //  glm::ivec3{posX, posY, posZ},
+        //  glm::ivec3{sizeX, sizeY, sizeZ},
+        //  voxels
+        //};
 
-        resultData[i] = vd;
+        resultData[i] = voxels;
       }
 
-      return resultData;
+      return resultData[0];
     }
 
 	void App::loadGameObjects(SimpleRenderSystem &simpleRenderSystem) {
         std::shared_ptr<VvModel> vvModel = createCubeModel(vvDevice, { .0f, .0f, .0f });
 
         //std::vector<VoxelData> vd = loadVoxelModel();
-        std::vector<VoxelData> vd = { VoxelData() };
-        vd[0].pos = glm::ivec3(0);
-        vd[0].size = glm::ivec3(256);
-        vd[0].data = VoxelTree::genRandomGrid();
+
+        std::vector<VoxelData> vd;
+        for (int i = 0; i < 1000; ++i) 
+        {
+          VoxelData voxel;
+          voxel.pos = glm::ivec3(((i / 10) % 10) * 350, i / 100 * 350, (i % 10) * 350);
+          voxel.size = glm::ivec3(256);
+          voxel.modelId = 0;
+          vd.push_back(voxel);
+        }
+
+
+        std::vector<std::vector<uint32_t>> models;
+        models.push_back(VoxelTree::getCompressedData(loadVoxelModel()));
 
         uint32_t dataOffset = 0;
         for (int i = 0; i < vd.size(); ++i)
@@ -204,13 +266,11 @@ namespace vv {
           cube1.model = vvModel;
           cube1.transform.translation = vd[i].pos;
           cube1.transform.scale = vd[i].size;
-          cube1.dataOffset = dataOffset;
+          cube1.dataOffset = vd[i].modelId;
           gameObjects.push_back(std::move(cube1));
-
-          dataOffset += vd[i].data.size();
         }
 
-        simpleRenderSystem.createBuffers(vd);
+        simpleRenderSystem.createBuffers(vd, models);
 
         //auto cube1 = VvGameObject::createGameObject();
 

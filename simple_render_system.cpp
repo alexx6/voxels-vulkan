@@ -15,6 +15,14 @@ namespace vv {
 		alignas(16) glm::mat4 inverseProjection{ 1.f };
 	};
 
+	struct DrawIndexedIndirectCommand {
+		uint32_t indexCount;     // Для куба: 36 индексов (12 треугольников)
+		uint32_t instanceCount;  // Всегда 1 (инстансинг не используем)
+		uint32_t firstIndex;     // 0 (если все кубы в одном индексном буфере)
+		int32_t  vertexOffset;   // 0
+		uint32_t firstInstance;  // Индекс для push constants
+	};
+
 	uint32_t SimpleRenderSystem::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 		VkPhysicalDeviceMemoryProperties memProperties;
 		vkGetPhysicalDeviceMemoryProperties(vvDevice.getPhysicalDevice(), &memProperties);
@@ -104,7 +112,7 @@ namespace vv {
 		};
 	}
 
-	void SimpleRenderSystem::createBuffers(std::vector<VoxelData>& voxelData)
+	void SimpleRenderSystem::createBuffers(std::vector<VoxelData>& voxelData, std::vector<std::vector<uint32_t>> models)
 	{
 		//Create descriptor pool
 
@@ -227,8 +235,8 @@ namespace vv {
 
 		//Need to write memory manager later
 		uint32_t totalSize = 0;
-		for (VoxelData& vd : voxelData)
-			totalSize += vd.data.size();
+		for (uint32_t i = 0; i < models.size(); ++i)
+			totalSize += models[i].size();
 
 		VkBufferCreateInfo ssboInfo{};
 		ssboInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -272,14 +280,13 @@ namespace vv {
 		ssboDescriptorWrite.pBufferInfo = &ssboDescriptorBufferInfo;
 
 		uint32_t dataOffset = 0;
-		for (uint32_t i = 0; i < voxelData.size(); ++i)
+		for (uint32_t i = 0; i < models.size(); ++i)
 		{
-			void* ssboMappedData;
-			vkMapMemory(vvDevice.device(), ssboBufferMemory, (uint64_t)sizeof(uint32_t) * dataOffset, (uint64_t)sizeof(uint32_t) * voxelData[i].data.size(), 0, &ssboMappedData);
-			memcpy(ssboMappedData, voxelData[i].data.data(), (uint64_t)sizeof(uint32_t) * voxelData[i].data.size());
+			vkMapMemory(vvDevice.device(), ssboBufferMemory, (uint64_t)sizeof(uint32_t) * dataOffset, (uint64_t)sizeof(uint32_t) * models[i].size(), 0, &ssboMappedData);
+			memcpy(ssboMappedData, models[i].data(), (uint64_t)sizeof(uint32_t) * models[i].size());
 			vkUnmapMemory(vvDevice.device(), ssboBufferMemory);
 
-			dataOffset += voxelData[i].data.size();
+			dataOffset += models[i].size();
 		}
 
 		//Push writes

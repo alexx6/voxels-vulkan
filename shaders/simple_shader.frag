@@ -183,7 +183,7 @@ struct TracingInfo
 	ivec3 nodePos;
 };
 
-TracingInfo tracingData[10];
+TracingInfo tracingData[21];
 
 //tracing state
 int depth = 0;
@@ -212,7 +212,7 @@ ivec3 deconvertOctant(uint octant)
 
 void goToChildNode()
 {
-	uint localChildIndex = (ssbo.data[nodeAddress + 1] >> (convertOctant() * 4)) & 15;
+	uint localChildIndex = (ssbo.data[nodeAddress + 2] >> (convertOctant() * 4)) & 15;
 	
 	if (localChildIndex == 8)
 	{
@@ -221,7 +221,7 @@ void goToChildNode()
 	}
 	else 
 	{
-		nodeAddress = ssbo.data[nodeAddress + 2 + localChildIndex];
+		nodeAddress = ssbo.data[nodeAddress + 3 + localChildIndex];
 		isLeaf = bool(ssbo.data[nodeAddress]);
 	}
 }
@@ -262,7 +262,7 @@ void traceIn()
 	}
 	stepIn();
 
-	while (!isLeaf)
+	while (!isLeaf && float(depth) < 8 * sqrt(1000 / length(push.vbPos + push.vbSize / 2 - vec3(matrices.inverseView[3]))))
 	{
 		curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize / 2));
 
@@ -346,9 +346,9 @@ vec4 traceVoxelBoxTree()
 
 
 	treePos += rayDir * 0.001;
-	if (all(greaterThan(vec3(matrices.inverseView[3]), vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]), vec3(256))))
+	if (all(greaterThan(vec3(matrices.inverseView[3]) - push.vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - push.vbPos, vec3(256))))
 	{
-		treePos = vec3(matrices.inverseView[3]);
+		treePos = vec3(matrices.inverseView[3]) - push.vbPos;
 	}
 
 	int a = 100;
@@ -376,7 +376,7 @@ vec4 traceVoxelBoxTree()
 void main() {
 	startPos = vec3(push.transform * vec4(fwpos, 1.0));
 	rayDir = normalize(startPos - vec3(matrices.inverseView[3]));
-	treePos = startPos;
+	treePos = startPos - push.vbPos;
 //	outColor = vec4(startPos, 1.);
 	ivec3 vPos;
 	ivec3 vNormal;
@@ -384,11 +384,11 @@ void main() {
 
 	outColor = traceVoxelBoxTree();
 //	outColor = vec4(vdir, 1);
-	float distanceToCamera = length(treePos - vec3(matrices.inverseView[3]));
+	float distanceToCamera = length(treePos + push.vbPos - vec3(matrices.inverseView[3]));
 //	outColor = vec4(distanceToCamera /10000);
-	gl_FragDepth = max(distanceToCamera / 10000.0, 0);
+	gl_FragDepth = max(distanceToCamera / 5000000.0, 0);
 //	outColor = traceVoxelBox(vPos, vNormal);
 
-	//	outColor += vec4(drawWireframe(), 0.0);
-//	outColor += vec4(vec3(vNormal) / 10, 0);
+//		outColor += vec4(drawWireframe(), 0.0);
+//		outColor += vec4(0.05 * nextAxis);
 }

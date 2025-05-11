@@ -17,6 +17,8 @@ namespace vv {
 			int lookRight = GLFW_KEY_RIGHT;
 			int lookUp = GLFW_KEY_UP;
 			int lookDown = GLFW_KEY_DOWN;
+			int speedUp = GLFW_KEY_PAGE_UP;
+			int speedDown = GLFW_KEY_PAGE_DOWN;
 		};
 
 		void moveInPlaneXZ(GLFWwindow* window, float dt, VvGameObject& gameObject);

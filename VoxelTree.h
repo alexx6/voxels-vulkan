@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
 #include <random>
+#include <fstream>
+#include <iostream>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -26,6 +28,7 @@ namespace vv {
 		//static std::vector<uint32_t> compressGrid(std::vector<uint32_t>);
 		static VoxelNode* compressGrid(const uint32_t* data, glm::ivec3 pos, uint32_t treeDim, uint32_t curDim);
 		static void serialize(VoxelNode* node, std::vector<uint32_t>& serializedData);
+		static std::vector<uint32_t> getCompressedData(std::vector<uint32_t> data);
 	};
 }
 

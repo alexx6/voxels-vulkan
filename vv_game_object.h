@@ -27,9 +27,9 @@ namespace vv {
 	struct VoxelData {
 		glm::ivec3 pos{};
 		glm::ivec3 size{};
-		std::vector<uint32_t> data;
+		uint32_t modelId = 0;
+		//std::vector<uint32_t> data;
 	};
-
 
 	class VvGameObject {
 	public:

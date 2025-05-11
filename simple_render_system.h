@@ -17,9 +17,10 @@ namespace vv {
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
 		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
-		void createBuffers(std::vector<VoxelData>& voxelData);
+		void createBuffers(std::vector<VoxelData>& voxelData, std::vector<std::vector<uint32_t>> models);
 		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<VvGameObject> &gameObjects, const VvCamera &camera);
 
+		void* ssboMappedData;
 	private:
 		void createPipelineLayout();
 		void createPipeline();

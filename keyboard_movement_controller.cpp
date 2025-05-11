@@ -9,7 +9,10 @@ namespace vv {
 		if (glfwGetKey(window, keys.lookLeft) == GLFW_PRESS) rotate.y -= 1.f;
 		if (glfwGetKey(window, keys.lookUp) == GLFW_PRESS) rotate.x -= 1.f;
 		if (glfwGetKey(window, keys.lookDown) == GLFW_PRESS) rotate.x += 1.f;
-		
+
+		if (glfwGetKey(window, keys.speedUp) == GLFW_PRESS) moveSpeed *= 1.005f;
+		if (glfwGetKey(window, keys.speedDown) == GLFW_PRESS) moveSpeed *= 0.995f;
+
 		if (glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon()) {
 			gameObject.transform.rotation += lookSpeed * dt * glm::normalize(rotate);
 		}

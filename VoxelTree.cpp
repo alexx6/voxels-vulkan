@@ -11,15 +11,20 @@ namespace vv {
 			{
 				for (int k = 0; k < 256; ++k)
 				{
+					//float nx = i / 256.;
+					//float ny = j / 256.;
+					//float nz = k / 256.;
+
+					//float distance = sqrt(pow(nx - 0.5, 2) + pow(ny - 0.5, 2) + pow(nz - 0.5, 2)) + pow(vnoise.eval(nx / 5, ny / 5, nz / 5), 10) / 10;
+
+					//if (distance < 0.3) {
+					//	data.push_back(0x77777777);
+					//	continue;
+					//}
+
 					float a = float(rand()) / RAND_MAX;
 					if (i + j + k < 256) {
-						if (i + j + k == 255)
-						{
-							data.push_back((i << 0) + (j << 8) + (k << 16));
-							continue;
-						}
-
-						data.push_back(0xffffffff);
+						data.push_back(((i / 16) << 0) + ((j / 16) << 8) + (((k / 16) << 16)));
 						continue;
 					}
 
@@ -31,11 +36,42 @@ namespace vv {
 		}
 
 
+		//std::vector<uint32_t> compressedData;
+
+		//VoxelNode* cg = compressGrid(data.data(), glm::ivec3(0), 256, 256);
+
+		//serialize(cg, compressedData);
+
+		//std::ofstream file("test_triangle", std::ios::binary);
+		//size_t size = compressedData.size();
+		//file.write(reinterpret_cast<const char*>(&size), sizeof(size_t));
+		//file.write(reinterpret_cast<const char*>(compressedData.data()), size * sizeof(int));
+		//file.close();
+
+		//std::ifstream file("test_triangle", std::ios::binary);
+		//if (!file) {
+		//	std::cerr << "Error opening file for reading!" << std::endl;
+		//	return {};
+		//}
+
+		//// Читаем размер вектора
+		//size_t size;
+		//file.read(reinterpret_cast<char*>(&size), sizeof(size_t));
+		//std::vector<uint32_t> compressedData(size);
+		//file.read(reinterpret_cast<char*>(compressedData.data()), size * sizeof(int));
+		//file.close();
+		
+  	return getCompressedData(data);
+	}
+
+	std::vector<uint32_t> VoxelTree::getCompressedData(std::vector<uint32_t> data){
 		std::vector<uint32_t> compressedData;
 
-		serialize(compressGrid(data.data(), glm::ivec3(0), 256, 256), compressedData);
+		VoxelNode* cg = compressGrid(data.data(), glm::ivec3(0), 256, 256);
 
-  	return compressedData;
+		serialize(cg, compressedData);
+
+		return compressedData;
 	}
 	
 	//stupid implementaions for now
@@ -136,6 +172,30 @@ namespace vv {
 
 			return node;
 		}
+		else 
+		{
+			uint32_t totalR = 0;
+			uint32_t totalG = 0;
+			uint32_t totalB = 0;
+			uint32_t totalA = 0;
+
+			int totalColors = 0;
+			for (int i = 0; i < 8; ++i)
+			{
+				if (!node->children[i]->color)
+				{
+					continue;
+				}
+
+				totalR += node->children[i]->color & 0xff;
+				totalG += (node->children[i]->color >> 8) & 0xff;
+				totalB += (node->children[i]->color >> 16) & 0xff;
+				//totalA += (node->children[i]->color >> 24) & 0xff;
+				totalColors++;
+			}
+
+			node->color = totalR / totalColors + ((totalG / totalColors) << 8) + ((totalB / totalColors) << 16) + ((totalA / totalColors) << 24);
+		}
 
 		node->isLeaf = 0;
 
@@ -160,15 +220,15 @@ namespace vv {
 
 		//serializedData.push_back(offset);
 		serializedData.push_back(node->isLeaf);
+		serializedData.push_back(node->color);
 
 		if (node->isLeaf)
 		{
-			if (node->color == 0)
-			{
-				int a = 0;
-				a++;
-			}
-			serializedData.push_back(node->color);
+			//if (node->color == 0)
+			//{
+			//	int a = 0;
+			//	a++;
+			//}
 			return;
 		}
 
@@ -189,7 +249,7 @@ namespace vv {
 
 		serializedData.push_back(mask);
 
-		serializedData.resize(offset + 2 + visibleNodes);
+		serializedData.resize(offset + 3 + visibleNodes);
 
 		uint32_t curChild = 0;
 		for (int i = 0; i < 8; ++i)
@@ -199,7 +259,7 @@ namespace vv {
 				continue;
 			}
 
-			serializedData[offset + 2 + curChild] = serializedData.size();
+			serializedData[offset + 3 + curChild] = serializedData.size();
 			serialize(node->children[i], serializedData);
 			++curChild;
 		}
