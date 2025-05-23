@@ -15,14 +15,6 @@ namespace vv {
 		alignas(16) glm::mat4 inverseProjection{ 1.f };
 	};
 
-	struct DrawIndexedIndirectCommand {
-		uint32_t indexCount;     // Для куба: 36 индексов (12 треугольников)
-		uint32_t instanceCount;  // Всегда 1 (инстансинг не используем)
-		uint32_t firstIndex;     // 0 (если все кубы в одном индексном буфере)
-		int32_t  vertexOffset;   // 0
-		uint32_t firstInstance;  // Индекс для push constants
-	};
-
 	uint32_t SimpleRenderSystem::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 		VkPhysicalDeviceMemoryProperties memProperties;
 		vkGetPhysicalDeviceMemoryProperties(vvDevice.getPhysicalDevice(), &memProperties);
@@ -71,45 +63,39 @@ namespace vv {
 
 		bool first = true;
 
-		for (auto& obj : gameObjects) {
-			SimplePushConstantData push{};
-			push.dataOffset = obj.dataOffset;
-			push.projectionView = camera.getProjection() * camera.getView();
-			push.transform = obj.transform.mat4();
-			push.vbPos = glm::floor(obj.transform.translation);
-			push.vbSize = glm::floor(obj.transform.scale);
-			//obj.transform.translation.x += 0.0001;
-			//obj.transform.translation.y += 0.0002;
-			//obj.transform.translation.z += 0.0003;
+		auto& obj = gameObjects[0];
+		SimplePushConstantData push{};
+		push.dataOffset = obj.dataOffset;
+		push.projectionView = camera.getProjection() * camera.getView();
+		push.transform = obj.transform.mat4();
+		push.vbPos = glm::floor(obj.transform.translation);
+		push.vbSize = glm::floor(obj.transform.scale);
+		//obj.transform.translation.x += 0.0001;
+		//obj.transform.translation.y += 0.0002;
+		//obj.transform.translation.z += 0.0003;
 
-			vkCmdPushConstants(
-				commandBuffer,
-				pipelineLayout,
-				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-				0,
-				sizeof(SimplePushConstantData),
-				&push);
+		vkCmdPushConstants(
+			commandBuffer,
+			pipelineLayout,
+			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+			0,
+			sizeof(SimplePushConstantData),
+			&push);
 
-			Matrices matrices;
-			matrices.view = camera.getView();
-			matrices.inverseView = glm::inverse(camera.getView());
-			matrices.inverseProjection = glm::inverse(camera.getProjection());
+		Matrices matrices;
+		matrices.view = camera.getView();
+		matrices.inverseView = glm::inverse(camera.getView());
+		matrices.inverseProjection = glm::inverse(camera.getProjection());
 
-			void* data;
-			vkMapMemory(vvDevice.device(), uniformBufferMemory, 0, sizeof(matrices), 0, &data);
-			memcpy(data, &matrices, sizeof(matrices));
-			vkUnmapMemory(vvDevice.device(), uniformBufferMemory);
+		void* data;
+		vkMapMemory(vvDevice.device(), uniformBufferMemory, 0, sizeof(matrices), 0, &data);
+		memcpy(data, &matrices, sizeof(matrices));
+		vkUnmapMemory(vvDevice.device(), uniformBufferMemory);
 
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
-			if (first) 
-			{
-				obj.model->bind(commandBuffer);
-				first = false;
-			}
-
-			obj.model->draw(commandBuffer);
-		};
+		obj.model->bind(commandBuffer);
+		obj.model->draw(commandBuffer);
 	}
 
 	void SimpleRenderSystem::createBuffers(std::vector<VoxelData>& voxelData, std::vector<std::vector<uint32_t>> models)
@@ -118,7 +104,7 @@ namespace vv {
 
 		VkDescriptorPoolSize poolSizes[] = {
 			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 }
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2 }
 		};
 
 		VkDescriptorPoolCreateInfo poolInfo{};
@@ -140,18 +126,25 @@ namespace vv {
 		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		uboLayoutBinding.pImmutableSamplers = nullptr;
 
-		VkDescriptorSetLayoutBinding ssboLayoutBinding{};
-		ssboLayoutBinding.binding = 1;
-		ssboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		ssboLayoutBinding.descriptorCount = 1;
-		ssboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-		ssboLayoutBinding.pImmutableSamplers = nullptr;
+		VkDescriptorSetLayoutBinding ssboLayoutBinding1{};
+		ssboLayoutBinding1.binding = 1;
+		ssboLayoutBinding1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		ssboLayoutBinding1.descriptorCount = 1;
+		ssboLayoutBinding1.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		ssboLayoutBinding1.pImmutableSamplers = nullptr;
 
-		VkDescriptorSetLayoutBinding layoutBindings[] = { uboLayoutBinding, ssboLayoutBinding };
+		VkDescriptorSetLayoutBinding ssboLayoutBinding2{};
+		ssboLayoutBinding2.binding = 2;
+		ssboLayoutBinding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		ssboLayoutBinding2.descriptorCount = 1;
+		ssboLayoutBinding2.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		ssboLayoutBinding2.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding layoutBindings[] = { uboLayoutBinding, ssboLayoutBinding1, ssboLayoutBinding2 };
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 2;
+		layoutInfo.bindingCount = 3;
 		layoutInfo.pBindings = layoutBindings;
 
 		VkDescriptorSetLayout descriptorSetLayout;
@@ -233,65 +226,110 @@ namespace vv {
 		uniformDescriptorWrite.descriptorCount = 1;
 		uniformDescriptorWrite.pBufferInfo = &uniformDescriptorBufferInfo;
 
-		//Need to write memory manager later
-		uint32_t totalSize = 0;
+		//Load models to gpu
+		uint32_t totalSize1 = 0;
 		for (uint32_t i = 0; i < models.size(); ++i)
-			totalSize += models[i].size();
+			totalSize1 += models[i].size();
 
-		VkBufferCreateInfo ssboInfo{};
-		ssboInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		ssboInfo.size = (uint64_t)sizeof(uint32_t) * totalSize;
-		ssboInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		ssboInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		VkBufferCreateInfo ssboInfo1{};
+		ssboInfo1.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		ssboInfo1.size = (uint64_t)sizeof(uint32_t) * totalSize1;
+		ssboInfo1.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		ssboInfo1.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		//We don't need to modify it at the moment
-		VkBuffer ssboBuffer;
-		if (vkCreateBuffer(vvDevice.device(), &ssboInfo, nullptr, &ssboBuffer) != VK_SUCCESS) {
+		VkBuffer ssboBuffer1;
+		if (vkCreateBuffer(vvDevice.device(), &ssboInfo1, nullptr, &ssboBuffer1) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create uniform buffer!");
 		}
 
-		VkMemoryRequirements ssboMemRequirements;
-		vkGetBufferMemoryRequirements(vvDevice.device(), ssboBuffer, &ssboMemRequirements);
+		VkMemoryRequirements ssboMemRequirements1;
+		vkGetBufferMemoryRequirements(vvDevice.device(), ssboBuffer1, &ssboMemRequirements1);
 
-		VkMemoryAllocateInfo ssboAllocInfo{};
-		ssboAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		ssboAllocInfo.allocationSize = ssboMemRequirements.size;
-		ssboAllocInfo.memoryTypeIndex = findMemoryType(ssboMemRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		VkMemoryAllocateInfo ssboAllocInfo1{};
+		ssboAllocInfo1.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		ssboAllocInfo1.allocationSize = ssboMemRequirements1.size;
+		ssboAllocInfo1.memoryTypeIndex = findMemoryType(ssboMemRequirements1.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-		VkDeviceMemory ssboBufferMemory;
-		if (vkAllocateMemory(vvDevice.device(), &ssboAllocInfo, nullptr, &ssboBufferMemory) != VK_SUCCESS) {
+		VkDeviceMemory ssboBufferMemory1;
+		if (vkAllocateMemory(vvDevice.device(), &ssboAllocInfo1, nullptr, &ssboBufferMemory1) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to allocate uniform buffer memory!");
 		}
 
-		vkBindBufferMemory(vvDevice.device(), ssboBuffer, ssboBufferMemory, 0);
+		vkBindBufferMemory(vvDevice.device(), ssboBuffer1, ssboBufferMemory1, 0);
 
-		VkDescriptorBufferInfo ssboDescriptorBufferInfo{};
-		ssboDescriptorBufferInfo.buffer = ssboBuffer;
-		ssboDescriptorBufferInfo.offset = 0;
-		ssboDescriptorBufferInfo.range = uint64_t(sizeof(uint32_t)) * totalSize;
+		VkDescriptorBufferInfo ssboDescriptorBufferInfo1{};
+		ssboDescriptorBufferInfo1.buffer = ssboBuffer1;
+		ssboDescriptorBufferInfo1.offset = 0;
+		ssboDescriptorBufferInfo1.range = uint64_t(sizeof(uint32_t)) * totalSize1;
 
-		VkWriteDescriptorSet ssboDescriptorWrite{};
-		ssboDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		ssboDescriptorWrite.dstSet = descriptorSet;
-		ssboDescriptorWrite.dstBinding = 1;
-		ssboDescriptorWrite.dstArrayElement = 0;
-		ssboDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		ssboDescriptorWrite.descriptorCount = 1;
-		ssboDescriptorWrite.pBufferInfo = &ssboDescriptorBufferInfo;
+		VkWriteDescriptorSet ssboDescriptorWrite1{};
+		ssboDescriptorWrite1.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		ssboDescriptorWrite1.dstSet = descriptorSet;
+		ssboDescriptorWrite1.dstBinding = 1;
+		ssboDescriptorWrite1.dstArrayElement = 0;
+		ssboDescriptorWrite1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		ssboDescriptorWrite1.descriptorCount = 1;
+		ssboDescriptorWrite1.pBufferInfo = &ssboDescriptorBufferInfo1;
 
 		uint32_t dataOffset = 0;
 		for (uint32_t i = 0; i < models.size(); ++i)
 		{
-			vkMapMemory(vvDevice.device(), ssboBufferMemory, (uint64_t)sizeof(uint32_t) * dataOffset, (uint64_t)sizeof(uint32_t) * models[i].size(), 0, &ssboMappedData);
-			memcpy(ssboMappedData, models[i].data(), (uint64_t)sizeof(uint32_t) * models[i].size());
-			vkUnmapMemory(vvDevice.device(), ssboBufferMemory);
+			vkMapMemory(vvDevice.device(), ssboBufferMemory1, (uint64_t)sizeof(uint32_t) * dataOffset, (uint64_t)sizeof(uint32_t) * models[i].size(), 0, &ssboMappedData1);
+			memcpy(ssboMappedData1, models[i].data(), (uint64_t)sizeof(uint32_t) * models[i].size());
+			vkUnmapMemory(vvDevice.device(), ssboBufferMemory1);
 
 			dataOffset += models[i].size();
 		}
 
+		//Load voxel data to gpu
+		VkBufferCreateInfo ssboInfo2{};
+		ssboInfo2.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		ssboInfo2.size = (uint64_t)sizeof(VoxelData) * voxelData.size();
+		ssboInfo2.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		ssboInfo2.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		VkBuffer ssboBuffer2;
+		if (vkCreateBuffer(vvDevice.device(), &ssboInfo2, nullptr, &ssboBuffer2) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create uniform buffer!");
+		}
+
+		VkMemoryRequirements ssboMemRequirements2;
+		vkGetBufferMemoryRequirements(vvDevice.device(), ssboBuffer2, &ssboMemRequirements2);
+
+		VkMemoryAllocateInfo ssboAllocInfo2{};
+		ssboAllocInfo2.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		ssboAllocInfo2.allocationSize = ssboMemRequirements2.size;
+		ssboAllocInfo2.memoryTypeIndex = findMemoryType(ssboMemRequirements1.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+		VkDeviceMemory ssboBufferMemory2;
+		if (vkAllocateMemory(vvDevice.device(), &ssboAllocInfo2, nullptr, &ssboBufferMemory2) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to allocate uniform buffer memory!");
+		}
+
+		vkBindBufferMemory(vvDevice.device(), ssboBuffer2, ssboBufferMemory2, 0);
+
+		VkDescriptorBufferInfo ssboDescriptorBufferInfo2{};
+		ssboDescriptorBufferInfo2.buffer = ssboBuffer2;
+		ssboDescriptorBufferInfo2.offset = 0;
+		ssboDescriptorBufferInfo2.range = (uint64_t)sizeof(VoxelData) * voxelData.size();
+
+		VkWriteDescriptorSet ssboDescriptorWrite2{};
+		ssboDescriptorWrite2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		ssboDescriptorWrite2.dstSet = descriptorSet;
+		ssboDescriptorWrite2.dstBinding = 2;
+		ssboDescriptorWrite2.dstArrayElement = 0;
+		ssboDescriptorWrite2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		ssboDescriptorWrite2.descriptorCount = 1;
+		ssboDescriptorWrite2.pBufferInfo = &ssboDescriptorBufferInfo2;
+
+		vkMapMemory(vvDevice.device(), ssboBufferMemory2, 0, (uint64_t)sizeof(VoxelData) * voxelData.size(), 0, &ssboMappedData2);
+		memcpy(ssboMappedData2, voxelData.data(), (uint64_t)sizeof(VoxelData) * voxelData.size());
+		vkUnmapMemory(vvDevice.device(), ssboBufferMemory2);
+
 		//Push writes
 		descriptorWrites.push_back(uniformDescriptorWrite);
-		descriptorWrites.push_back(ssboDescriptorWrite);
+		descriptorWrites.push_back(ssboDescriptorWrite1);
+		descriptorWrites.push_back(ssboDescriptorWrite2);
 
 		vkUpdateDescriptorSets(vvDevice.device(), descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 

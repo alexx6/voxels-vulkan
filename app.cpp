@@ -245,10 +245,10 @@ namespace vv {
         //std::vector<VoxelData> vd = loadVoxelModel();
 
         std::vector<VoxelData> vd;
-        for (int i = 0; i < 1000; ++i) 
+        for (int i = 0; i < 1000000; ++i) 
         {
           VoxelData voxel;
-          voxel.pos = glm::ivec3(((i / 10) % 10) * 350, i / 100 * 350, (i % 10) * 350);
+          voxel.pos = glm::ivec3(((i / 100) % 100) * 350, i / 10000 * 350, (i % 100) * 350);
           voxel.size = glm::ivec3(256);
           voxel.modelId = 0;
           vd.push_back(voxel);

@@ -51,6 +51,9 @@
     <ClCompile Include="keyboard_movement_controller.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="VoxelTree.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="vv_window.h">
@@ -81,6 +84,9 @@
       <Filter>Исходные файлы</Filter>
     </ClInclude>
     <ClInclude Include="keyboard_movement_controller.h">
+      <Filter>Исходные файлы</Filter>
+    </ClInclude>
+    <ClInclude Include="VoxelTree.h">
       <Filter>Исходные файлы</Filter>
     </ClInclude>
   </ItemGroup>

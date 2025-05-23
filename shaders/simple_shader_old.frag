@@ -3,7 +3,6 @@
 layout (location = 0) in vec3 fragColor;
 layout (location = 0) out vec4 outColor;
 layout (location = 1) in vec3 fwpos;
-layout (location = 2) in flat vec3 vbPos;
 
 layout(push_constant) uniform Push {
 	mat4 transform;
@@ -27,10 +26,23 @@ vec3 rayDir;
 vec3 cameraPos;
 vec3 startPos;
 
+uint getVoxel(ivec3 pos)
+{
+//	return 0;
+	return ssbo.data[push.dataOffset + pos.x + pos.y * push.vbSize.x + pos.z * push.vbSize.x * push.vbSize.y];
+
+//	if (pow(pos.x - push.vbSize.x / 2, 2) + pow(pos.y - push.vbSize.y / 2, 2) + pow(pos.z - push.vbSize.z / 2, 2) < pow(push.vbSize.x / 2, 2))
+//	{
+//		return 1.;
+//	}
+//
+//	return 0.;
+}
+
 vec3 drawWireframe()
 {
 	ivec3 size = push.vbSize;
-	vec3 pos = startPos - vbPos;
+	vec3 pos = startPos - push.vbPos;
 	float e = 0.2;
 
 	if (pos.x < e && pos.y < e)
@@ -95,6 +107,73 @@ vec3 drawWireframe()
 	}
 
 	return vec3(0.);
+}
+
+vec4 traceVoxelBox(out ivec3 vPos, out ivec3 vNormal)
+{
+	ivec3 size = push.vbSize;
+//	vec3 startPos = cameraPos + gl_FragCoord.z / gl_FragCoord.w * rayDir;
+	vec3 pos = startPos - push.vbPos;
+
+	ivec3 vdir = ivec3(greaterThan(rayDir, vec3(0.)));
+	ivec3 curVoxel = ivec3(floor(pos + rayDir * 0.001));
+
+	vec3 invRayDir = 1. / rayDir;
+	
+	if (!all(lessThan(abs(curVoxel * 2 + ivec3(1) - push.vbSize),  vec3(push.vbSize))))
+	{
+		pos = vec3(matrices.inverseView[3]) - push.vbPos;
+		curVoxel = ivec3(floor(pos + rayDir * 0.001));
+	}
+
+//	if(all(equal(curVoxel, ivec3(0))))
+//	{
+//		gl_FragDepth = 1;
+//		return vec4(0);
+//	}
+//	any(greaterThan(pos, ivec3(0))) && all(lessThan(curVoxel, size))
+//	return vec4(vec3(curVoxel) / push.vbSize, 1);
+
+	//Used to get normals
+	ivec3 lastVoxel = curVoxel;
+	while (all(lessThan(abs(curVoxel * 2 + ivec3(1) - push.vbSize),  vec3(push.vbSize))))
+	{
+		uint voxelColor = getVoxel(curVoxel);
+
+		if (voxelColor > 0)
+		{
+			vNormal = curVoxel - lastVoxel;
+			vPos = curVoxel;
+			
+			float distanceToCamera = length(pos + push.vbPos - vec3(matrices.inverseView[3]));
+			gl_FragDepth = max(distanceToCamera / 10000.0, 0);
+
+//			return vec4((distanceToCamera - 0.1) / (1000.0 - 0.1));
+			return vec4((voxelColor) & 0xFF, (voxelColor >> 8) & 0xFF, (voxelColor >> 16) & 0xFF, (voxelColor >> 24) & 0xFF) / 255.f;
+		}
+
+		lastVoxel = curVoxel;
+
+		vec3 l = (curVoxel + vdir - pos) * invRayDir;
+		if (l.x < l.y && l.x < l.z)
+		{
+			pos += rayDir * l.x;
+			curVoxel.x += vdir.x * 2 - 1;
+			continue;
+		}
+		else if (l.y < l.z)
+		{
+			pos += rayDir * l.y;
+			curVoxel.y += vdir.y * 2 - 1;
+			continue;
+		}
+
+		pos += rayDir * l.z;
+		curVoxel.z += vdir.z * 2 - 1;
+	}
+
+	gl_FragDepth = 1;
+	return vec4(0);
 }
 
 struct TracingInfo
@@ -183,7 +262,7 @@ void traceIn()
 	}
 	stepIn();
 
-	while (!isLeaf && float(depth) < 8 * sqrt(1000 / length(vbPos + push.vbSize / 2 - vec3(matrices.inverseView[3]))))
+	while (!isLeaf && float(depth) < 8 * sqrt(1000 / length(push.vbPos + push.vbSize / 2 - vec3(matrices.inverseView[3]))))
 	{
 		curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize / 2));
 
@@ -267,9 +346,9 @@ vec4 traceVoxelBoxTree()
 
 
 	treePos += rayDir * 0.001;
-	if (all(greaterThan(vec3(matrices.inverseView[3]) - vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - vbPos, vec3(256))))
+	if (all(greaterThan(vec3(matrices.inverseView[3]) - push.vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - push.vbPos, vec3(256))))
 	{
-		treePos = vec3(matrices.inverseView[3]) - vbPos;
+		treePos = vec3(matrices.inverseView[3]) - push.vbPos;
 	}
 
 	int a = 100;
@@ -295,14 +374,9 @@ vec4 traceVoxelBoxTree()
 }
 
 void main() {
-//	outColor = vec4(fragColor, 1);
-//	return;
-
-//	startPos = vec3(push.transform * vec4(fwpos, 1.0));
-		startPos = fwpos;
-
+	startPos = vec3(push.transform * vec4(fwpos, 1.0));
 	rayDir = normalize(startPos - vec3(matrices.inverseView[3]));
-	treePos = startPos - vbPos;
+	treePos = startPos - push.vbPos;
 //	outColor = vec4(startPos, 1.);
 	ivec3 vPos;
 	ivec3 vNormal;
@@ -310,7 +384,7 @@ void main() {
 
 	outColor = traceVoxelBoxTree();
 //	outColor = vec4(vdir, 1);
-	float distanceToCamera = length(treePos + vbPos - vec3(matrices.inverseView[3]));
+	float distanceToCamera = length(treePos + push.vbPos - vec3(matrices.inverseView[3]));
 //	outColor = vec4(distanceToCamera /10000);
 	gl_FragDepth = max(distanceToCamera / 5000000.0, 0);
 //	outColor = traceVoxelBox(vPos, vNormal);

@@ -140,6 +140,7 @@
     <ClCompile Include="keyboard_movement_controller.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="simple_render_system.cpp" />
+    <ClCompile Include="VoxelTree.cpp" />
     <ClCompile Include="vv_camera.cpp" />
     <ClCompile Include="vv_device.cpp" />
     <ClCompile Include="vv_model.cpp" />
@@ -151,6 +152,7 @@
   <ItemGroup>
     <ClInclude Include="keyboard_movement_controller.h" />
     <ClInclude Include="simple_render_system.h" />
+    <ClInclude Include="VoxelTree.h" />
     <ClInclude Include="vv_camera.h" />
     <ClInclude Include="vv_device.hpp" />
     <ClInclude Include="vv_game_object.h" />

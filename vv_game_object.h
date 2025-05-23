@@ -28,6 +28,8 @@ namespace vv {
 		glm::ivec3 pos{};
 		glm::ivec3 size{};
 		uint32_t modelId = 0;
+
+		uint32_t a = 0;
 		//std::vector<uint32_t> data;
 	};
 
