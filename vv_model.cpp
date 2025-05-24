@@ -20,7 +20,7 @@ namespace vv {
 
 	void VvModel::draw(VkCommandBuffer commandBuffer) {
 		if (hasIndexBuffer) {
-			vkCmdDrawIndexed(commandBuffer, indexCount, 1000000, 0, 0, 0);
+			vkCmdDrawIndexed(commandBuffer, indexCount, 1000, 0, 0, 0);
 		}
 		else {
 			vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);

@@ -8,6 +8,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm/glm.hpp"
 #include "glm/gtc/constants.hpp"
+#include "vv_game_object.h"
 
 namespace vv {
 	struct VoxelNode {
@@ -28,7 +29,7 @@ namespace vv {
 		//static std::vector<uint32_t> compressGrid(std::vector<uint32_t>);
 		static VoxelNode* compressGrid(const uint32_t* data, glm::ivec3 pos, uint32_t treeDim, uint32_t curDim);
 		static void serialize(VoxelNode* node, std::vector<uint32_t>& serializedData);
-		static std::vector<uint32_t> getCompressedData(std::vector<uint32_t> data);
+		static VoxelModel getCompressedData(VoxelModel model);
 	};
 }
 

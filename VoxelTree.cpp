@@ -61,17 +61,17 @@ namespace vv {
 		//file.read(reinterpret_cast<char*>(compressedData.data()), size * sizeof(int));
 		//file.close();
 		
-  	return getCompressedData(data);
+		return getCompressedData({ 256 , data }).modelData;
 	}
 
-	std::vector<uint32_t> VoxelTree::getCompressedData(std::vector<uint32_t> data){
+	VoxelModel VoxelTree::getCompressedData(VoxelModel model){
 		std::vector<uint32_t> compressedData;
 
-		VoxelNode* cg = compressGrid(data.data(), glm::ivec3(0), 256, 256);
+		VoxelNode* cg = compressGrid(model.modelData.data(), glm::ivec3(0), model.size, model.size);
 
 		serialize(cg, compressedData);
 
-		return compressedData;
+		return { model.size, compressedData };
 	}
 	
 	//stupid implementaions for now

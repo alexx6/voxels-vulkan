@@ -109,10 +109,14 @@ namespace vv {
         return std::make_unique<VvModel>(device, modelBuilder);
     }
 
-    std::vector<uint32_t> loadVoxelModel()
+    VoxelModel loadVoxelModel(std::string modelName)
     {
       std::ifstream f;
-      f.open("./rock.qb", std::ios::in | std::ios::binary);
+      f.open("./" + modelName + ".qb", std::ios::in | std::ios::binary);
+
+      //
+      uint32_t sizeX;
+      //
 
       uint32_t version;
       f.read((char*)&version, sizeof(version));
@@ -142,7 +146,6 @@ namespace vv {
         char* matrixName = new char[matrixNameLength + 1];
         f.read(matrixName, matrixNameLength);
 
-        uint32_t sizeX;
         f.read((char*)&sizeX, sizeof(sizeX));
 
         uint32_t sizeY;
@@ -236,7 +239,7 @@ namespace vv {
         resultData[i] = voxels;
       }
 
-      return resultData[0];
+      return { sizeX, resultData[0] };
     }
 
 	void App::loadGameObjects(SimpleRenderSystem &simpleRenderSystem) {
@@ -244,19 +247,38 @@ namespace vv {
 
         //std::vector<VoxelData> vd = loadVoxelModel();
 
-        std::vector<VoxelData> vd;
-        for (int i = 0; i < 1000000; ++i) 
+        std::vector<std::string> modelNames = { "crystal", "rock_big" };
+
+        std::vector<uint32_t> modelSizes;
+
+        std::vector<std::vector<uint32_t>> models;
+
+        std::vector<uint32_t> modelOffsets;
+        uint32_t curOffset = 0;
+
+        for (int i = 0; i < modelNames.size(); ++i)
         {
+          VoxelModel model = VoxelTree::getCompressedData(loadVoxelModel(modelNames[i]));
+          models.push_back(model.modelData);
+          modelSizes.push_back(model.size);
+
+          modelOffsets.push_back(curOffset);
+          curOffset += models[i].size();
+        }
+
+        std::vector<VoxelData> vd;
+        for (int i = 0; i < 1000; ++i) 
+        {
+          uint32_t modelId = i % 2;
+
           VoxelData voxel;
-          voxel.pos = glm::ivec3(((i / 100) % 100) * 350, i / 10000 * 350, (i % 100) * 350);
-          voxel.size = glm::ivec3(256);
-          voxel.modelId = 0;
+          voxel.pos = glm::ivec3(((i / 10) % 10) * 690, i / 100 * 690, (i % 10) * 690);
+          voxel.size = glm::ivec3(modelSizes[modelId]);
+          voxel.modelOffset = modelOffsets[modelId];
+          //voxel.modelSize = modelSizes[modelId];
           vd.push_back(voxel);
         }
 
-
-        std::vector<std::vector<uint32_t>> models;
-        models.push_back(VoxelTree::getCompressedData(loadVoxelModel()));
 
         uint32_t dataOffset = 0;
         for (int i = 0; i < vd.size(); ++i)
@@ -265,8 +287,8 @@ namespace vv {
 
           cube1.model = vvModel;
           cube1.transform.translation = vd[i].pos;
-          cube1.transform.scale = vd[i].size;
-          cube1.dataOffset = vd[i].modelId;
+          //cube1.transform.scale = vd[i].size;
+          cube1.dataOffset = vd[i].modelOffset;
           gameObjects.push_back(std::move(cube1));
         }
 

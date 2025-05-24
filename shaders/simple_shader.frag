@@ -4,6 +4,11 @@ layout (location = 0) in vec3 fragColor;
 layout (location = 0) out vec4 outColor;
 layout (location = 1) in vec3 fwpos;
 layout (location = 2) in flat vec3 vbPos;
+layout (location = 3) in flat uint modelOffset;
+layout (location = 4) in flat uint modelSize;
+layout (location = 5) in flat uint priority;
+
+uint sizeLevel = uint(log2(modelSize));
 
 layout(push_constant) uniform Push {
 	mat4 transform;
@@ -27,75 +32,75 @@ vec3 rayDir;
 vec3 cameraPos;
 vec3 startPos;
 
-vec3 drawWireframe()
-{
-	ivec3 size = push.vbSize;
-	vec3 pos = startPos - vbPos;
-	float e = 0.2;
-
-	if (pos.x < e && pos.y < e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.x < e && pos.z < e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.y < e && pos.z < e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.x > size.x - e && pos.y > size.y - e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.x > size.x - e && pos.z > size.z - e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.y > size.y - e && pos.z > size.z - e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.x < e && pos.y > size.y - e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.x > size.x - e && pos.y < e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.x < e && pos.z > size.z - e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.x > size.z - e && pos.z < e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.y < e && pos.z > size.z - e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-	if (pos.y > size.y - e && pos.z < e)
-	{
-		gl_FragDepth = 0.;
-		return vec3(1.);
-	}
-
-	return vec3(0.);
-}
+//vec3 drawWireframe()
+//{
+//	ivec3 size = push.vbSize;
+//	vec3 pos = startPos - vbPos;
+//	float e = 0.2;
+//
+//	if (pos.x < e && pos.y < e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.x < e && pos.z < e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.y < e && pos.z < e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.x > size.x - e && pos.y > size.y - e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.x > size.x - e && pos.z > size.z - e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.y > size.y - e && pos.z > size.z - e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.x < e && pos.y > size.y - e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.x > size.x - e && pos.y < e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.x < e && pos.z > size.z - e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.x > size.z - e && pos.z < e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.y < e && pos.z > size.z - e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//	if (pos.y > size.y - e && pos.z < e)
+//	{
+//		gl_FragDepth = 0.;
+//		return vec3(1.);
+//	}
+//
+//	return vec3(0.);
+//}
 
 struct TracingInfo
 {
@@ -111,7 +116,7 @@ int depth = 0;
 uint nodeAddress = 0;
 uint nextAxis = 0;
 uint nextDir = 0;
-ivec3 nodeSize = ivec3(256);
+ivec3 nodeSize = ivec3(modelSize);
 ivec3 curOctant = ivec3(0);
 ivec3 nodePos = ivec3(0);
 vec3 treePos;
@@ -133,7 +138,7 @@ ivec3 deconvertOctant(uint octant)
 
 void goToChildNode()
 {
-	uint localChildIndex = (ssbo.data[nodeAddress + 2] >> (convertOctant() * 4)) & 15;
+	uint localChildIndex = (ssbo.data[modelOffset + nodeAddress + 2] >> (convertOctant() * 4)) & 15;
 	
 	if (localChildIndex == 8)
 	{
@@ -142,8 +147,8 @@ void goToChildNode()
 	}
 	else 
 	{
-		nodeAddress = ssbo.data[nodeAddress + 3 + localChildIndex];
-		isLeaf = bool(ssbo.data[nodeAddress]);
+		nodeAddress = ssbo.data[modelOffset + nodeAddress + 3 + localChildIndex];
+		isLeaf = bool(ssbo.data[modelOffset + nodeAddress]);
 	}
 }
 
@@ -183,7 +188,7 @@ void traceIn()
 	}
 	stepIn();
 
-	while (!isLeaf && float(depth) < 8 * sqrt(1000 / length(vbPos + push.vbSize / 2 - vec3(matrices.inverseView[3]))))
+	while (!isLeaf && float(depth) < sizeLevel * sqrt(1000 / length(vbPos + push.vbSize / 2 - vec3(matrices.inverseView[3]))))
 	{
 		curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize / 2));
 
@@ -196,7 +201,7 @@ void traceIn()
 		return;
 	}
 
-	voxelColor = ssbo.data[nodeAddress + 1];
+	voxelColor = ssbo.data[modelOffset + nodeAddress + 1];
 }
 
 void setNextNode()
@@ -267,12 +272,10 @@ vec4 traceVoxelBoxTree()
 
 
 	treePos += rayDir * 0.001;
-	if (all(greaterThan(vec3(matrices.inverseView[3]) - vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - vbPos, vec3(256))))
+	if (all(greaterThan(vec3(matrices.inverseView[3]) - vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - vbPos, vec3(modelSize))))
 	{
 		treePos = vec3(matrices.inverseView[3]) - vbPos;
 	}
-
-	int a = 100;
 
 //	stepIn();
 	curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize / 2));
@@ -296,6 +299,7 @@ vec4 traceVoxelBoxTree()
 
 void main() {
 //	outColor = vec4(fragColor, 1);
+//	gl_FragDepth = length(fwpos - vec3(matrices.inverseView[3])) / 2000;
 //	return;
 
 //	startPos = vec3(push.transform * vec4(fwpos, 1.0));
@@ -306,13 +310,17 @@ void main() {
 //	outColor = vec4(startPos, 1.);
 	ivec3 vPos;
 	ivec3 vNormal;
-	outColor = vec4(1);
+//	outColor = vec4(1);
 
+//	traceVoxelBoxTree();
 	outColor = traceVoxelBoxTree();
 //	outColor = vec4(vdir, 1);
 	float distanceToCamera = length(treePos + vbPos - vec3(matrices.inverseView[3]));
 //	outColor = vec4(distanceToCamera /10000);
-	gl_FragDepth = max(distanceToCamera / 5000000.0, 0);
+	gl_FragDepth = max(distanceToCamera / 2000000.0, 0);
+	gl_FragDepth *= (1 - priority * 0.0000001);
+//	outColor = vec4(modelOffset);
+//	gl_FragDepth = gl_FragCoord.w;
 //	outColor = traceVoxelBox(vPos, vNormal);
 
 //		outColor += vec4(drawWireframe(), 0.0);

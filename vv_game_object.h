@@ -6,6 +6,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <vector>
+
 namespace vv {
 	struct TransformComponent {
 		glm::vec3 translation{};
@@ -27,10 +29,27 @@ namespace vv {
 	struct VoxelData {
 		glm::ivec3 pos{};
 		glm::ivec3 size{};
-		uint32_t modelId = 0;
-
 		uint32_t a = 0;
+
+		//uint32_t modelSize = 0;
+
+		uint32_t modelOffset = 0;
+
+		//uint32_t b = 0;
+
+		//uint32_t c = 0;
+
+
+		//uint32_t b = 0;
+		//uint32_t c = 0;
+
+
 		//std::vector<uint32_t> data;
+	};
+
+	struct VoxelModel {
+		uint32_t size;
+		std::vector<uint32_t> modelData;
 	};
 
 	class VvGameObject {
