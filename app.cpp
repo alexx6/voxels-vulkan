@@ -247,33 +247,71 @@ namespace vv {
 
         //std::vector<VoxelData> vd = loadVoxelModel();
 
-        std::vector<std::string> modelNames = { "crystal", "rock_big" };
+        std::vector<std::string> modelNames = { "rock_big", "rock", "crystal" };
 
-        std::vector<uint32_t> modelSizes;
+        for (int i = 0; i < modelNames.size(); ++i)
+        {
+          struct stat buf;
+
+          if (stat(modelNames[i].c_str(), &buf) != -1)
+          {
+            continue;
+          }
+
+          VoxelModel model = VoxelTree::getCompressedData(loadVoxelModel(modelNames[i]));
+          
+          std::ofstream file(modelNames[i], std::ios::binary);
+
+          uint32_t size = model.modelData.size();
+          file.write(reinterpret_cast<const char*>(&size), sizeof(uint32_t));
+
+          uint32_t modelSize = model.size;
+          file.write(reinterpret_cast<const char*>(&modelSize), sizeof(uint32_t));
+
+          file.write(reinterpret_cast<const char*>(model.modelData.data()), size * sizeof(uint32_t));
+          file.close();
+        }
 
         std::vector<std::vector<uint32_t>> models;
-
+        std::vector<uint32_t> modelSizes;
         std::vector<uint32_t> modelOffsets;
         uint32_t curOffset = 0;
 
         for (int i = 0; i < modelNames.size(); ++i)
         {
-          VoxelModel model = VoxelTree::getCompressedData(loadVoxelModel(modelNames[i]));
-          models.push_back(model.modelData);
-          modelSizes.push_back(model.size);
+          std::ifstream file(modelNames[i], std::ios::binary);
+
+          if (!file) 
+          {
+            std::cerr << "File \"" << modelNames[i] << "\" not found." << std::endl;
+          }
+
+          uint32_t size;
+          file.read(reinterpret_cast<char*>(&size), sizeof(uint32_t));
+
+          uint32_t modelSize;
+          file.read(reinterpret_cast<char*>(&modelSize), sizeof(uint32_t));
+
+          std::vector<uint32_t> modelData(size);
+          file.read(reinterpret_cast<char*>(modelData.data()), size * sizeof(uint32_t));
+          file.close();
+
+          models.push_back(modelData);
+          modelSizes.push_back(modelSize);
 
           modelOffsets.push_back(curOffset);
-          curOffset += models[i].size();
+          curOffset += modelData.size();
         }
 
         std::vector<VoxelData> vd;
         for (int i = 0; i < 1000; ++i) 
         {
-          uint32_t modelId = i % 2;
+          uint32_t modelId = i % modelNames.size();
 
           VoxelData voxel;
           voxel.pos = glm::ivec3(((i / 10) % 10) * 690, i / 100 * 690, (i % 10) * 690);
-          voxel.size = glm::ivec3(modelSizes[modelId]);
+          voxel.size = modelSizes[modelId];
+          voxel.orientation = i % 24;
           voxel.modelOffset = modelOffsets[modelId];
           //voxel.modelSize = modelSizes[modelId];
           vd.push_back(voxel);

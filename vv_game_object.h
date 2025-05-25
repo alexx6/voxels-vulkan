@@ -27,24 +27,10 @@ namespace vv {
  	};
 
 	struct VoxelData {
-		glm::ivec3 pos{};
-		glm::ivec3 size{};
-		uint32_t a = 0;
-
-		//uint32_t modelSize = 0;
-
-		uint32_t modelOffset = 0;
-
-		//uint32_t b = 0;
-
-		//uint32_t c = 0;
-
-
-		//uint32_t b = 0;
-		//uint32_t c = 0;
-
-
-		//std::vector<uint32_t> data;
+		alignas(16) glm::ivec3 pos{};
+		alignas(4) uint32_t size = 0;
+		alignas(4) uint32_t orientation = 0;
+		alignas(4) uint32_t modelOffset = 0;
 	};
 
 	struct VoxelModel {

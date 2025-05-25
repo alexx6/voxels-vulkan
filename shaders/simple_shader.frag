@@ -7,6 +7,7 @@ layout (location = 2) in flat vec3 vbPos;
 layout (location = 3) in flat uint modelOffset;
 layout (location = 4) in flat uint modelSize;
 layout (location = 5) in flat uint priority;
+layout (location = 6) in flat uint orientation;
 
 uint sizeLevel = uint(log2(modelSize));
 
@@ -27,6 +28,70 @@ layout(set = 0, binding = 0) uniform Matrices {
 layout(binding = 1) buffer StorageBuffer {
     uint data[];
 } ssbo;
+
+mat3 orientations1[24] = mat3[](
+    mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+    mat3( 0,  0,  1,  0,  1,  0, -1,  0,  0),
+    mat3(-1,  0,  0,  0,  1,  0,  0,  0, -1),
+    mat3( 0,  0, -1,  0,  1,  0,  1,  0,  0),
+
+		mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+    mat3( 0,  0,  1,  0,  1,  0, -1,  0,  0),
+    mat3(-1,  0,  0,  0,  1,  0,  0,  0, -1),
+    mat3( 0,  0, -1,  0,  1,  0,  1,  0,  0),
+
+		mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+    mat3( 0,  0,  1,  0,  1,  0, -1,  0,  0),
+    mat3(-1,  0,  0,  0,  1,  0,  0,  0, -1),
+    mat3( 0,  0, -1,  0,  1,  0,  1,  0,  0),
+
+		mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+    mat3( 0,  0,  1,  0,  1,  0, -1,  0,  0),
+    mat3(-1,  0,  0,  0,  1,  0,  0,  0, -1),
+    mat3( 0,  0, -1,  0,  1,  0,  1,  0,  0),
+
+		mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+    mat3( 0,  0,  1,  0,  1,  0, -1,  0,  0),
+    mat3(-1,  0,  0,  0,  1,  0,  0,  0, -1),
+    mat3( 0,  0, -1,  0,  1,  0,  1,  0,  0),
+
+		mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+    mat3( 0,  0,  1,  0,  1,  0, -1,  0,  0),
+    mat3(-1,  0,  0,  0,  1,  0,  0,  0, -1),
+    mat3( 0,  0, -1,  0,  1,  0,  1,  0,  0)
+);
+
+mat3 orientations2[24] = mat3[](
+    mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+		mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+    mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+    mat3( 1,  0,  0,  0,  1,  0,  0,  0,  1),
+
+    mat3( 1,  0,  0,  0, -1,  0,  0,  0, -1),
+		mat3( 1,  0,  0,  0, -1,  0,  0,  0, -1),
+    mat3( 1,  0,  0,  0, -1,  0,  0,  0, -1),
+    mat3( 1,  0,  0,  0, -1,  0,  0,  0, -1),
+
+    mat3( 0, -1,  0,  1,  0,  0,  0,  0,  1),
+    mat3( 0, -1,  0,  1,  0,  0,  0,  0,  1),
+    mat3( 0, -1,  0,  1,  0,  0,  0,  0,  1),
+    mat3( 0, -1,  0,  1,  0,  0,  0,  0,  1),
+
+    mat3( 0,  1,  0, -1,  0,  0,  0,  0,  1),
+		mat3( 0,  1,  0, -1,  0,  0,  0,  0,  1), 
+		mat3( 0,  1,  0, -1,  0,  0,  0,  0,  1), 
+		mat3( 0,  1,  0, -1,  0,  0,  0,  0,  1),
+
+		mat3( 1,  0,  0,  0,  0, -1,  0,  1,  0),
+		mat3( 1,  0,  0,  0,  0, -1,  0,  1,  0),
+		mat3( 1,  0,  0,  0,  0, -1,  0,  1,  0),
+		mat3( 1,  0,  0,  0,  0, -1,  0,  1,  0),
+
+		mat3( 1,  0,  0,  0,  0, 1,  0,  -1,  0),
+		mat3( 1,  0,  0,  0,  0, 1,  0,  -1,  0),
+		mat3( 1,  0,  0,  0,  0, 1,  0,  -1,  0),
+		mat3( 1,  0,  0,  0,  0, 1,  0,  -1,  0)
+);
 
 vec3 rayDir;
 vec3 cameraPos;
@@ -125,6 +190,7 @@ vec3 invRayDir;
 ivec3 vdir;
 uint voxelColor = 0;
 bool octantIsSet = false;
+vec3 treeStartPos = vec3(0);
 
 uint convertOctant()
 {
@@ -188,7 +254,7 @@ void traceIn()
 	}
 	stepIn();
 
-	while (!isLeaf && float(depth) < sizeLevel * sqrt(1000 / length(vbPos + push.vbSize / 2 - vec3(matrices.inverseView[3]))))
+	while (!isLeaf && float(depth) < sizeLevel * sqrt(2000 / length(vbPos + push.vbSize / 2 - vec3(matrices.inverseView[3]))))
 	{
 		curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize / 2));
 
@@ -263,9 +329,6 @@ vec4 convertColor()
 
 vec4 traceVoxelBoxTree()
 {
-	vdir = ivec3(greaterThan(rayDir, vec3(0.)));
-	invRayDir = 1. / rayDir;
-
 	tracingData[0].address = 0;
 	tracingData[0].octant = ivec3(0);
 	tracingData[0].nodePos = ivec3(0);
@@ -276,6 +339,21 @@ vec4 traceVoxelBoxTree()
 	{
 		treePos = vec3(matrices.inverseView[3]) - vbPos;
 	}
+
+	treePos = orientations1[orientation % 4] * orientations2[orientation] * (treePos - vec3(modelSize / 2)) + vec3(modelSize / 2);
+	rayDir = orientations1[orientation % 4] * orientations2[orientation] * rayDir;
+
+	treeStartPos = treePos;
+
+//	treePos = orientations1[orientation % 4] * (treePos - vec3(modelSize / 2)) + vec3(modelSize / 2);
+//	rayDir = orientations1[orientation % 4] * rayDir;
+
+//	treePos = vec3(modelSize - treePos.y, treePos.x, treePos.z);
+//	rayDir = vec3(-rayDir.y, rayDir.x, rayDir.z);
+	vdir = ivec3(greaterThan(rayDir, vec3(0.)));
+
+
+	invRayDir = 1. / rayDir;
 
 //	stepIn();
 	curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize / 2));
@@ -315,7 +393,7 @@ void main() {
 //	traceVoxelBoxTree();
 	outColor = traceVoxelBoxTree();
 //	outColor = vec4(vdir, 1);
-	float distanceToCamera = length(treePos + vbPos - vec3(matrices.inverseView[3]));
+	float distanceToCamera = length(startPos - vec3(matrices.inverseView[3])) + length(treeStartPos - treePos);
 //	outColor = vec4(distanceToCamera /10000);
 	gl_FragDepth = max(distanceToCamera / 2000000.0, 0);
 	gl_FragDepth *= (1 - priority * 0.0000001);

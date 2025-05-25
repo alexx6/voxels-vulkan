@@ -7,6 +7,7 @@ layout (location = 2) out flat vec3 vbPos;
 layout (location = 3) out flat uint modelOffset;
 layout (location = 4) out flat uint modelSize;
 layout (location = 5) out flat uint priority;
+layout (location = 6) out flat uint orientation;
 
 layout(location = 0) out vec3 fragColor;
 
@@ -21,7 +22,8 @@ layout(push_constant) uniform Push {
 struct VoxelData
 {
 	ivec3 pos;
-	ivec3 size;
+	uint size;
+	uint orientation;
 	uint modelOffset;
 };
 
@@ -34,13 +36,10 @@ void main() {
 
 	mat4 newTransform = push.transform;
 //
-	newTransform[0] *= ssbo.vd[gl_InstanceIndex].size.x;
-	newTransform[1] *= ssbo.vd[gl_InstanceIndex].size.x;
-	newTransform[2] *= ssbo.vd[gl_InstanceIndex].size.x;
+	newTransform[0] *= ssbo.vd[gl_InstanceIndex].size;
+	newTransform[1] *= ssbo.vd[gl_InstanceIndex].size;
+	newTransform[2] *= ssbo.vd[gl_InstanceIndex].size;
 
-//	newTransform[0] *= 256;
-//	newTransform[1] *= 256;
-//	newTransform[2] *= 256;
 	newTransform[3].xyz += ssbo.vd[gl_InstanceIndex].pos;
 
 	gl_Position = push.projectionView * newTransform * vec4(position, 1.0);
@@ -48,7 +47,8 @@ void main() {
 	fwpos = vec3(newTransform * vec4(position, 1.0));
 	vbPos = ssbo.vd[gl_InstanceIndex].pos;
 	modelOffset = ssbo.vd[gl_InstanceIndex].modelOffset;
-	modelSize = ssbo.vd[gl_InstanceIndex].size.x;
+	modelSize = ssbo.vd[gl_InstanceIndex].size;
+	orientation = ssbo.vd[gl_InstanceIndex].orientation;
 	priority = gl_InstanceIndex;
 //	gl_Position += vec4(ssbo.vd[gl_InstanceIndex].pos, 0);
 	fragColor = vec3(ssbo.vd[gl_InstanceIndex].modelOffset);
