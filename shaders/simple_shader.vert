@@ -56,7 +56,7 @@ void main() {
 	modelSize = ssbo.vd[gl_InstanceIndex].size;
 	orientation = ssbo.vd[gl_InstanceIndex].orientation;
 //
-//	if (length(vbPos - vec3(matrices.inverseView[3])) > 4000) 
+//	if (length(vbPos - vec3(matrices.inverseView[3])) > 1000) 
 //	{
 //		gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
 //	}

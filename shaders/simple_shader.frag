@@ -1,4 +1,5 @@
 #version 430
+#pragma unroll
 
 layout (location = 0) in vec3 fragColor;
 layout (location = 0) out vec4 outColor;
@@ -24,6 +25,8 @@ layout(set = 0, binding = 0) uniform Matrices {
     mat4 inverseView;
 		mat4 inverseProjection;
 } matrices;
+
+float maxDepth = sizeLevel * sqrt(2000 / length(vbPos + modelSize * 0.5 - vec3(matrices.inverseView[3])));
 
 layout(binding = 1) buffer StorageBuffer {
     uint data[];
@@ -174,7 +177,7 @@ struct TracingInfo
 	ivec3 nodePos;
 };
 
-TracingInfo tracingData[21];
+TracingInfo tracingData[10];
 
 //tracing state
 int depth = 0;
@@ -194,7 +197,7 @@ vec3 treeStartPos = vec3(0);
 
 uint convertOctant()
 {
-	return curOctant.x + curOctant.y * 2 + curOctant.z * 4;
+	return curOctant.x | (curOctant.y << 1) | (curOctant.z << 2);
 }
 
 ivec3 deconvertOctant(uint octant)
@@ -206,29 +209,20 @@ void goToChildNode()
 {
 	uint localChildIndex = (ssbo.data[modelOffset + nodeAddress + 2] >> (convertOctant() * 4)) & 15;
 	
-	if (localChildIndex == 8)
-	{
-		nodeAddress = 0;
-		isLeaf = true;
-	}
-	else 
-	{
-		nodeAddress = ssbo.data[modelOffset + nodeAddress + 3 + localChildIndex];
-		isLeaf = bool(ssbo.data[modelOffset + nodeAddress]);
-	}
+	float isLocalIndexValid = float(localChildIndex != 8);
+
+	nodeAddress = uint(mix(0, ssbo.data[modelOffset + nodeAddress + 3 + localChildIndex], isLocalIndexValid));
+	isLeaf = bool(mix(1, ssbo.data[modelOffset + nodeAddress], isLocalIndexValid));
 }
 
 void stepIn()
 {
-	//update state
 	depth += 1;
 	nodeSize /= 2;
 	nodePos += curOctant * nodeSize;
 
-	//update node address
 	goToChildNode();
 
-	//update data
 	tracingData[depth].address = nodeAddress;
 	tracingData[depth].octant = curOctant;
 	tracingData[depth].nodePos = nodePos;
@@ -250,13 +244,13 @@ void traceIn()
 
 	if (!octantIsSet) 
 	{
-		curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize / 2));
+		curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize * 0.5));
 	}
 	stepIn();
 
-	while (!isLeaf && float(depth) < sizeLevel * sqrt(2000 / length(vbPos + push.vbSize / 2 - vec3(matrices.inverseView[3]))))
+	while (!isLeaf && float(depth) < maxDepth)
 	{
-		curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize / 2));
+		curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize * 0.5));
 
 		stepIn();
 	} 
@@ -285,15 +279,10 @@ void setNextNode()
 	stepOut();
 
 	curOctant = tracingData[depth + 1].octant;
+	
+	int offset = (1 << nextAxis);
 
-	if (nextDir > 0) 
-	{
-			curOctant = deconvertOctant(convertOctant() + (1 << nextAxis));
-	}
-	else
-	{
-			curOctant = deconvertOctant(convertOctant() - (1 << nextAxis));
-	}
+	curOctant = deconvertOctant(convertOctant() + int(mix(-offset, offset, float(nextDir > 0))));
 
 	octantIsSet = true;
 }
@@ -302,29 +291,13 @@ void stepTree()
 {
 	vec3 l = (nodePos + vdir * nodeSize - treePos) * invRayDir;
 
-	if (l.x < l.y && l.x < l.z)
-	{
-		treePos += rayDir * l.x;
-		nextDir = vdir.x;
-		nextAxis = 0;
-	}
-	else if (l.y < l.z)
-	{
-		treePos += rayDir * l.y;
-		nextDir = vdir.y;
-		nextAxis = 1;
-	}
-	else
-	{
-		treePos += rayDir * l.z;
-		nextDir = vdir.z;
-		nextAxis = 2;
-	} 
-}
+	bvec3 mask = lessThan(l.xxy, l.yzz);
+	float useX = float(mask.x && mask.y);
+	float useY = float(mask.z);
 
-vec4 convertColor()
-{
-	return vec4((voxelColor) & 0xFF, (voxelColor >> 8) & 0xFF, (voxelColor >> 16) & 0xFF, (voxelColor >> 24) & 0xFF) / 255.f;
+	treePos += rayDir * mix(mix(l.z, l.y, useY), l.x, useX);
+	nextDir = uint(mix(mix(vdir.z, vdir.y, useY), vdir.x, useX));
+	nextAxis = uint(mix(mix(2, 1, useY), 0, useX));
 }
 
 vec4 traceVoxelBoxTree()
@@ -341,23 +314,17 @@ vec4 traceVoxelBoxTree()
 		startPos = vec3(matrices.inverseView[3]);
 	}
 
-	treePos = orientations1[orientation % 4] * orientations2[orientation] * (treePos - vec3(modelSize / 2)) + vec3(modelSize / 2);
+	treePos = orientations1[orientation % 4] * orientations2[orientation] * (treePos - vec3(modelSize * 0.5)) + vec3(modelSize * 0.5);
 	rayDir = orientations1[orientation % 4] * orientations2[orientation] * rayDir;
 
 	treeStartPos = treePos;
 
-//	treePos = orientations1[orientation % 4] * (treePos - vec3(modelSize / 2)) + vec3(modelSize / 2);
-//	rayDir = orientations1[orientation % 4] * rayDir;
-
-//	treePos = vec3(modelSize - treePos.y, treePos.x, treePos.z);
-//	rayDir = vec3(-rayDir.y, rayDir.x, rayDir.z);
 	vdir = ivec3(greaterThan(rayDir, vec3(0.)));
 
 
 	invRayDir = 1. / rayDir;
 
-//	stepIn();
-	curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize / 2));
+	curOctant = ivec3(greaterThan(treePos, nodePos + nodeSize * 0.5));
 
 	while (depth >= 0)
 	{
@@ -365,7 +332,7 @@ vec4 traceVoxelBoxTree()
 
 		if (voxelColor > 0)
 		{
-			return convertColor();
+			return unpackUnorm4x8(voxelColor);
 		}
 
 		stepTree();
@@ -377,31 +344,15 @@ vec4 traceVoxelBoxTree()
 }
 
 void main() {
-//	outColor = vec4(fragColor, 1);
-//	gl_FragDepth = length(fwpos - vec3(matrices.inverseView[3])) / 2000000.0;
-//	return;
-
-//	startPos = vec3(push.transform * vec4(fwpos, 1.0));
-		startPos = fwpos;
+	startPos = fwpos;
 
 	rayDir = normalize(startPos - vec3(matrices.inverseView[3]));
 	treePos = startPos - vbPos;
-//	outColor = vec4(startPos, 1.);
 	ivec3 vPos;
 	ivec3 vNormal;
-//	outColor = vec4(1);
 
-//	traceVoxelBoxTree();
 	outColor = traceVoxelBoxTree();
-//	outColor = vec4(vdir, 1);
 	float distanceToCamera = length(startPos - vec3(matrices.inverseView[3])) + length(treeStartPos - treePos);
-//	outColor = vec4(distanceToCamera /10000);
 	gl_FragDepth = max(distanceToCamera / 2000000.0, 0);
 	gl_FragDepth *= (1 - priority * 0.0000001);
-//	outColor = vec4(modelOffset);
-//	gl_FragDepth = gl_FragCoord.w;
-//	outColor = traceVoxelBox(vPos, vNormal);
-
-//		outColor += vec4(drawWireframe(), 0.0);
-//		outColor += vec4(0.05 * nextAxis);
 }
