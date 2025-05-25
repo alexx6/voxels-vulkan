@@ -22,6 +22,8 @@ namespace vv {
 
 		void* ssboMappedData1;
 		void* ssboMappedData2;
+
+		uint32_t instanceCount = 0;
 	private:
 		void createPipelineLayout();
 		void createPipeline();

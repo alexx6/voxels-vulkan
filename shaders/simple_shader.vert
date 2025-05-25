@@ -19,6 +19,12 @@ layout(push_constant) uniform Push {
 	ivec3 vbSize;
 } push;
 
+layout(set = 0, binding = 0) uniform Matrices {
+    mat4 view;
+    mat4 inverseView;
+		mat4 inverseProjection;
+} matrices;
+
 struct VoxelData
 {
 	ivec3 pos;
@@ -43,12 +49,18 @@ void main() {
 	newTransform[3].xyz += ssbo.vd[gl_InstanceIndex].pos;
 
 	gl_Position = push.projectionView * newTransform * vec4(position, 1.0);
-
+	
 	fwpos = vec3(newTransform * vec4(position, 1.0));
 	vbPos = ssbo.vd[gl_InstanceIndex].pos;
 	modelOffset = ssbo.vd[gl_InstanceIndex].modelOffset;
 	modelSize = ssbo.vd[gl_InstanceIndex].size;
 	orientation = ssbo.vd[gl_InstanceIndex].orientation;
+//
+//	if (length(vbPos - vec3(matrices.inverseView[3])) > 4000) 
+//	{
+//		gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+//	}
+
 	priority = gl_InstanceIndex;
 //	gl_Position += vec4(ssbo.vd[gl_InstanceIndex].pos, 0);
 	fragColor = vec3(ssbo.vd[gl_InstanceIndex].modelOffset);

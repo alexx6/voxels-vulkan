@@ -95,7 +95,7 @@ namespace vv {
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
 		obj.model->bind(commandBuffer);
-		obj.model->draw(commandBuffer);
+		obj.model->draw(commandBuffer, instanceCount);
 	}
 
 	void SimpleRenderSystem::createBuffers(std::vector<VoxelData>& voxelData, std::vector<std::vector<uint32_t>> models)
@@ -123,7 +123,7 @@ namespace vv {
 		uboLayoutBinding.binding = 0;
 		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboLayoutBinding.descriptorCount = 1;
-		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		uboLayoutBinding.pImmutableSamplers = nullptr;
 
 		VkDescriptorSetLayoutBinding ssboLayoutBinding1{};

@@ -54,6 +54,9 @@
     <ClCompile Include="VoxelTree.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="WorldGenerator.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="vv_window.h">
@@ -87,6 +90,12 @@
       <Filter>Исходные файлы</Filter>
     </ClInclude>
     <ClInclude Include="VoxelTree.h">
+      <Filter>Исходные файлы</Filter>
+    </ClInclude>
+    <ClInclude Include="WorldGenerator.h">
+      <Filter>Исходные файлы</Filter>
+    </ClInclude>
+    <ClInclude Include="FastNoiseLite.h">
       <Filter>Исходные файлы</Filter>
     </ClInclude>
   </ItemGroup>

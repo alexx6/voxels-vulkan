@@ -6,6 +6,7 @@
 #include "keyboard_movement_controller.h"
 #include <fstream>
 #include "VoxelTree.h"
+#include "WorldGenerator.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -36,12 +37,25 @@ namespace vv {
 
     auto currentTime = std::chrono::high_resolution_clock::now();
 
+    uint32_t framesCounter = 0;
+    float framesCounterTime = 0.f;
+
 		while (!vvWindow.shouldClose()) {
 			glfwPollEvents();
 
       auto newTime = std::chrono::high_resolution_clock::now();
       float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
       currentTime = newTime;
+
+      framesCounterTime += frameTime;
+      ++framesCounter;
+
+      if (framesCounterTime >= 1.f) 
+      {
+        std::cout << "CURRENT FPS: " << framesCounter / framesCounterTime << std::endl;
+        framesCounter = 0;
+        framesCounterTime = 0.f;
+      }
 
       cameraController.moveInPlaneXZ(vvWindow.getGLFWwindow(), frameTime, viewerObject);
       camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
@@ -247,7 +261,7 @@ namespace vv {
 
         //std::vector<VoxelData> vd = loadVoxelModel();
 
-        std::vector<std::string> modelNames = { "rock_big", "rock", "crystal" };
+        std::vector<std::string> modelNames = { "rock_red", "rock_big", "rock", "crystal" };
 
         for (int i = 0; i < modelNames.size(); ++i)
         {
@@ -304,32 +318,35 @@ namespace vv {
         }
 
         std::vector<VoxelData> vd;
-        for (int i = 0; i < 1000; ++i) 
-        {
-          uint32_t modelId = i % modelNames.size();
 
-          VoxelData voxel;
-          voxel.pos = glm::ivec3(((i / 10) % 10) * 690, i / 100 * 690, (i % 10) * 690);
-          voxel.size = modelSizes[modelId];
-          voxel.orientation = i % 24;
-          voxel.modelOffset = modelOffsets[modelId];
-          //voxel.modelSize = modelSizes[modelId];
-          vd.push_back(voxel);
-        }
+        WorldGenerator generator(modelSizes, modelOffsets);
+
+        generator.generateChunk(vd, 0, 0);
+
+        //for (int i = 0; i < 1000; ++i) 
+        //{
+        //  uint32_t modelId = i % modelNames.size();
+
+        //  VoxelData voxel;
+        //  voxel.pos = glm::ivec3(((i / 10) % 10) * 690, i / 100 * 690, (i % 10) * 690);
+        //  voxel.size = modelSizes[modelId];
+        //  voxel.orientation = i % 24;
+        //  voxel.modelOffset = modelOffsets[modelId];
+        //  //voxel.modelSize = modelSizes[modelId];
+        //  vd.push_back(voxel);
+        //}
 
 
-        uint32_t dataOffset = 0;
-        for (int i = 0; i < vd.size(); ++i)
-        {
-          auto cube1 = VvGameObject::createGameObject();
 
-          cube1.model = vvModel;
-          cube1.transform.translation = vd[i].pos;
-          //cube1.transform.scale = vd[i].size;
-          cube1.dataOffset = vd[i].modelOffset;
-          gameObjects.push_back(std::move(cube1));
-        }
+        auto cube1 = VvGameObject::createGameObject();
 
+        cube1.model = vvModel;
+        //cube1.transform.translation = vd[i].pos;
+        //cube1.transform.scale = vd[i].size;
+        //cube1.dataOffset = vd[i].modelOffset;
+        gameObjects.push_back(std::move(cube1));
+
+        simpleRenderSystem.instanceCount = vd.size();
         simpleRenderSystem.createBuffers(vd, models);
 
         //auto cube1 = VvGameObject::createGameObject();

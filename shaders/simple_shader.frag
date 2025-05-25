@@ -338,6 +338,7 @@ vec4 traceVoxelBoxTree()
 	if (all(greaterThan(vec3(matrices.inverseView[3]) - vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - vbPos, vec3(modelSize))))
 	{
 		treePos = vec3(matrices.inverseView[3]) - vbPos;
+		startPos = vec3(matrices.inverseView[3]);
 	}
 
 	treePos = orientations1[orientation % 4] * orientations2[orientation] * (treePos - vec3(modelSize / 2)) + vec3(modelSize / 2);
@@ -377,7 +378,7 @@ vec4 traceVoxelBoxTree()
 
 void main() {
 //	outColor = vec4(fragColor, 1);
-//	gl_FragDepth = length(fwpos - vec3(matrices.inverseView[3])) / 2000;
+//	gl_FragDepth = length(fwpos - vec3(matrices.inverseView[3])) / 2000000.0;
 //	return;
 
 //	startPos = vec3(push.transform * vec4(fwpos, 1.0));

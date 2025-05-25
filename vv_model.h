@@ -30,7 +30,7 @@ namespace vv {
 		VvModel& operator=(const VvModel&) = delete;
 
 		void bind(VkCommandBuffer commandBuffer);
-		void draw(VkCommandBuffer commandBuffer);
+		void draw(VkCommandBuffer commandBuffer, uint32_t instanceCount);
 
 	private:
 		void createVertexBuffers(const std::vector<Vertex>& vertices);
