@@ -30,9 +30,19 @@ void VvSwapChain::init() {
     createDepthResources();
     createFramebuffers();
     createSyncObjects();
+    createOffscreenPass();
+    createOffscreenSampler();
 }
 
 VvSwapChain::~VvSwapChain() {
+  vkDestroyImageView(device.device(), offscreenPass.view, nullptr);
+  vkDestroyImage(device.device(), offscreenPass.image, nullptr);
+  vkFreeMemory(device.device(), offscreenPass.memory, nullptr);
+  vkDestroySampler(device.device(), offscreenSampler, nullptr);
+  vkDestroyFramebuffer(device.device(), offscreenPass.framebuffer, nullptr);
+  vkDestroyRenderPass(device.device(), offscreenPass.renderPass, nullptr);
+
+
   for (auto imageView : swapChainImageViews) {
     vkDestroyImageView(device.device(), imageView, nullptr);
   }
@@ -424,6 +434,191 @@ VkFormat VvSwapChain::findDepthFormat() {
       {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
       VK_IMAGE_TILING_OPTIMAL,
       VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+}
+
+void VvSwapChain::createOffscreenPass() {
+  // Устанавливаем меньшее разрешение (например, половина от основного)
+  offscreenPass.extent = {
+      windowExtent.width / 32,
+      windowExtent.height / 32
+  };
+  offscreenPass.format = VK_FORMAT_R32G32B32A32_SFLOAT; // Или другой подходящий формат
+
+  // Создаем изображение для offscreen прохода
+  VkImageCreateInfo imageInfo{};
+  imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  imageInfo.imageType = VK_IMAGE_TYPE_2D;
+  imageInfo.extent.width = offscreenPass.extent.width;
+  imageInfo.extent.height = offscreenPass.extent.height;
+  imageInfo.extent.depth = 1;
+  imageInfo.mipLevels = 1;
+  imageInfo.arrayLayers = 1;
+  imageInfo.format = offscreenPass.format;
+  imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  device.createImageWithInfo(
+    imageInfo,
+    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    offscreenPass.image,
+    offscreenPass.memory);
+
+  // Создаем image view
+  VkImageViewCreateInfo viewInfo{};
+  viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  viewInfo.image = offscreenPass.image;
+  viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  viewInfo.format = offscreenPass.format;
+  viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  viewInfo.subresourceRange.baseMipLevel = 0;
+  viewInfo.subresourceRange.levelCount = 1;
+  viewInfo.subresourceRange.baseArrayLayer = 0;
+  viewInfo.subresourceRange.layerCount = 1;
+
+  if (vkCreateImageView(device.device(), &viewInfo, nullptr, &offscreenPass.view) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create offscreen pass image view!");
+  }
+
+  // Настраиваем дескриптор для использования в шейдере
+  offscreenPass.descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  offscreenPass.descriptor.imageView = offscreenPass.view;
+  offscreenPass.descriptor.sampler = VK_NULL_HANDLE; // Нужно будет создать сэмплер
+
+  // Создаем render pass для offscreen прохода
+  VkAttachmentDescription attachmentDescription{};
+  attachmentDescription.format = offscreenPass.format;
+  attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+  attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+  VkAttachmentReference colorReference = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+
+  VkAttachmentDescription depthAttachment{};
+  depthAttachment.format = findDepthFormat();
+  depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+  depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  VkAttachmentReference depthAttachmentRef{};
+  depthAttachmentRef.attachment = 1;
+  depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  VkSubpassDescription subpass{};
+  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpass.colorAttachmentCount = 1;
+  subpass.pColorAttachments = &colorReference;
+  subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+  std::array<VkAttachmentDescription, 2> attachments = { attachmentDescription, depthAttachment };
+
+  VkRenderPassCreateInfo renderPassInfo{};
+  renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+  renderPassInfo.attachmentCount = 2;
+  renderPassInfo.pAttachments = attachments.data();
+  renderPassInfo.subpassCount = 1;
+  renderPassInfo.pSubpasses = &subpass;
+
+  if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &offscreenPass.renderPass) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create offscreen render pass!");
+  }
+
+  VkImage depthImage;
+  VkImageView depthImageView;
+  VkDeviceMemory depthImageMemory;
+
+  VkFormat depthFormat = findDepthFormat();
+
+  VkImageCreateInfo depthImageInfo{};
+  depthImageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  depthImageInfo.imageType = VK_IMAGE_TYPE_2D;
+  depthImageInfo.extent.width = swapChainExtent.width;
+  depthImageInfo.extent.height = swapChainExtent.height;
+  depthImageInfo.extent.depth = 1;
+  depthImageInfo.mipLevels = 1;
+  depthImageInfo.arrayLayers = 1;
+  depthImageInfo.format = depthFormat;
+  depthImageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+  depthImageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  depthImageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  depthImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  depthImageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  depthImageInfo.flags = 0;
+
+  device.createImageWithInfo(
+    depthImageInfo,
+    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    depthImage,
+    depthImageMemory);
+
+  VkImageViewCreateInfo depthViewInfo{};
+  depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  depthViewInfo.image = depthImage;
+  depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  depthViewInfo.format = depthFormat;
+  depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+  depthViewInfo.subresourceRange.baseMipLevel = 0;
+  depthViewInfo.subresourceRange.levelCount = 1;
+  depthViewInfo.subresourceRange.baseArrayLayer = 0;
+  depthViewInfo.subresourceRange.layerCount = 1;
+
+  if (vkCreateImageView(device.device(), &depthViewInfo, nullptr, &depthImageView) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create texture image view!");
+  }
+
+  std::array<VkImageView, 2> depthAttachments = { offscreenPass.view, depthImageView };
+
+  // Создаем framebuffer
+  VkFramebufferCreateInfo framebufferInfo{};
+  framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  framebufferInfo.renderPass = offscreenPass.renderPass;
+  framebufferInfo.attachmentCount = 2;
+  framebufferInfo.pAttachments = depthAttachments.data();
+  framebufferInfo.width = offscreenPass.extent.width;
+  framebufferInfo.height = offscreenPass.extent.height;
+  framebufferInfo.layers = 1;
+
+  if (vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &offscreenPass.framebuffer) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create offscreen framebuffer!");
+  }
+}
+
+VkDescriptorImageInfo VvSwapChain::getOffscreenDescriptor() const {
+  return offscreenPass.descriptor;
+}
+
+void VvSwapChain::createOffscreenSampler() {
+  VkSamplerCreateInfo samplerInfo{};
+  samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerInfo.magFilter = VK_FILTER_NEAREST;
+  samplerInfo.minFilter = VK_FILTER_NEAREST;
+  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.addressModeV = samplerInfo.addressModeU;
+  samplerInfo.addressModeW = samplerInfo.addressModeU;
+  samplerInfo.anisotropyEnable = VK_TRUE;
+  samplerInfo.maxAnisotropy = device.properties.limits.maxSamplerAnisotropy;
+  samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  samplerInfo.unnormalizedCoordinates = VK_FALSE;
+  samplerInfo.compareEnable = VK_FALSE;
+  samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+  samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+  if (vkCreateSampler(device.device(), &samplerInfo, nullptr, &offscreenSampler) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create offscreen sampler!");
+  }
+
+  // Обновляем дескриптор сэмплером
+  offscreenPass.descriptor.sampler = offscreenSampler;
 }
 
 }  // namespace lve

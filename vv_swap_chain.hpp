@@ -11,6 +11,16 @@
 #include <vector>
 
 namespace vv {
+  struct OffscreenPass {
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    VkFormat format;
+    VkFramebuffer framebuffer = VK_NULL_HANDLE;
+    VkRenderPass renderPass = VK_NULL_HANDLE;
+    VkExtent2D extent;
+    VkDescriptorImageInfo descriptor;
+  };
 
 class VvSwapChain {
  public:
@@ -32,10 +42,13 @@ class VvSwapChain {
   uint32_t width() { return swapChainExtent.width; }
   uint32_t height() { return swapChainExtent.height; }
 
+  OffscreenPass getOffscreenPass() { return offscreenPass; }
+
   float extentAspectRatio() {
     return static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
   }
   VkFormat findDepthFormat();
+
 
   VkResult acquireNextImage(uint32_t *imageIndex);
   VkResult submitCommandBuffers(const VkCommandBuffer *buffers, uint32_t *imageIndex);
@@ -53,6 +66,9 @@ class VvSwapChain {
   void createRenderPass();
   void createFramebuffers();
   void createSyncObjects();
+  void createOffscreenPass();
+  void createOffscreenSampler();
+  VkDescriptorImageInfo getOffscreenDescriptor() const;
 
   // Helper functions
   VkSurfaceFormatKHR chooseSwapSurfaceFormat(
@@ -85,6 +101,9 @@ class VvSwapChain {
   std::vector<VkFence> inFlightFences;
   std::vector<VkFence> imagesInFlight;
   size_t currentFrame = 0;
+
+  OffscreenPass offscreenPass;
+  VkSampler offscreenSampler;
 };
 
 }  // namespace lve

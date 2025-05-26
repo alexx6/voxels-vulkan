@@ -37,8 +37,6 @@ layout(binding = 2) buffer StorageBuffer {
     VoxelData vd[];
 } ssbo;
 
-layout(binding = 3) uniform sampler2D offscreenTexture;
-
 void main() {
 //	gl_Position = vec4(push.transform * position + push.offset, 0.0, 1.0); 
 
@@ -63,15 +61,7 @@ void main() {
 //		gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
 //	}
 
-//	if (length(fwpos - vec3(matrices.inverseView[3])) / 2000000.0 > 
-//		texture(offscreenTexture, gl_Position.xy / gl_Position.w * 0.5 + vec2(0.5)).x
-//		&& !(all(greaterThan(vec3(matrices.inverseView[3]) - vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - vbPos, vec3(modelSize)))))
-//	{
-//		gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
-//	}
-
 	priority = gl_InstanceIndex;
 //	gl_Position += vec4(ssbo.vd[gl_InstanceIndex].pos, 0);
-//	fragColor = vec3(ssbo.vd[gl_InstanceIndex].modelOffset);
-//	fragColor = vec3(texture(offscreenTexture, gl_Position.xy / gl_Position.w * 0.5 + vec2(0.5)).x);
+	fragColor = vec3(ssbo.vd[gl_InstanceIndex].modelOffset);
 }

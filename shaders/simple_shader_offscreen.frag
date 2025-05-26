@@ -26,9 +26,6 @@ layout(set = 0, binding = 0) uniform Matrices {
 		mat4 inverseProjection;
 } matrices;
 
-layout(binding = 3) uniform sampler2D offscreenTexture;
-
-//float maxDepth = 9 * sqrt(1000 / length(vbPos + modelSize * 0.5 - vec3(matrices.inverseView[3])));
 float maxDepth = sizeLevel * sqrt(2000 / length(vbPos + modelSize * 0.5 - vec3(matrices.inverseView[3])));
 
 layout(binding = 1) buffer StorageBuffer {
@@ -347,29 +344,7 @@ vec4 traceVoxelBoxTree()
 }
 
 void main() {
-//	gl_FragDepth = 0;
-//	outColor = vec4(fragColor, 1);
-//	outColor = texture(offscreenTexture, vec2(gl_FragCoord.x / 960. / 2, gl_FragCoord.y / 540. / 2));
-//	return;
-	if (length(fwpos - vec3(matrices.inverseView[3])) > texture(offscreenTexture, vec2(gl_FragCoord.x / 960. / 2, gl_FragCoord.y / 540. / 2)).x
-		&& !(all(greaterThan(vec3(matrices.inverseView[3]) - vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - vbPos, vec3(modelSize)))))
-	{
-		discard;
-	}
-
-//	if (maxDepth < 1)
-//	{
-//		discard;
-//	}
-//	gl_FragDepth = 0;
-//	outColor = vec4(1);
-//	return;
-
-//	gl_FragDepth = 0;
-//	outColor = unpackUnorm4x8(ssbo.data[modelOffset + nodeAddress + 1]);
-//	return;
-
-//	maxDepth = 2;
+	maxDepth = 5;
 	startPos = fwpos;
 
 	rayDir = normalize(startPos - vec3(matrices.inverseView[3]));
@@ -377,8 +352,11 @@ void main() {
 	ivec3 vPos;
 	ivec3 vNormal;
 
-	outColor = traceVoxelBoxTree();
+	traceVoxelBoxTree();
 	float distanceToCamera = length(startPos - vec3(matrices.inverseView[3])) + length(treeStartPos - treePos);
 	gl_FragDepth = max(distanceToCamera / 2000000.0, 0);
-	gl_FragDepth *= (1 - priority * 0.0000001);
+//	gl_FragDepth *= (1 - priority * 0.0000001);
+
+	outColor = vec4(1);
+	outColor.x = distanceToCamera;
 }

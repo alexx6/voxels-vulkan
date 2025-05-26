@@ -36,7 +36,8 @@ namespace vv {
 		alignas(16) glm::ivec3 vbSize;
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(VvDevice& device, VkRenderPass renderPass) : vvDevice{ device }, renderPass(renderPass) {}
+	SimpleRenderSystem::SimpleRenderSystem(VvDevice& device, VkRenderPass renderPass, VkRenderPass offScreenRenderPass) : vvDevice{ device }, renderPass(renderPass),
+	offScreenRenderPass(offScreenRenderPass) {}
 
 	SimpleRenderSystem::~SimpleRenderSystem() {
 		vkDestroyPipelineLayout(vvDevice.device(), pipelineLayout, nullptr);
@@ -56,10 +57,26 @@ namespace vv {
 			"shaders/simple_shader.frag.spv",
 			pipelineConfig
 		);
+
+		PipelineConfigInfo pipelineConfigOffscreen{};
+		VvPipeline::defaultPipelineConfigInfo(pipelineConfigOffscreen);
+		pipelineConfigOffscreen.renderPass = offScreenRenderPass;
+		pipelineConfigOffscreen.pipelineLayout = pipelineLayout;
+		vvOffscreenPipeline = std::make_unique<VvPipeline>(
+			vvDevice,
+			"shaders/simple_shader_offscreen.vert.spv",
+			"shaders/simple_shader_offscreen.frag.spv",
+			pipelineConfigOffscreen
+		);
 	}
 
-	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<VvGameObject>& gameObjects, const VvCamera& camera) {
-		vvPipeline->bind(commandBuffer);
+	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<VvGameObject>& gameObjects, const VvCamera& camera, uint32_t pass) {
+		if(pass == 0)
+			vvOffscreenPipeline->bind(commandBuffer);
+		else if (pass == 1)
+			vvPipeline->bind(commandBuffer);
+		else
+			vvRenderFixPipeline->bind(commandBuffer);
 
 		bool first = true;
 
@@ -98,18 +115,19 @@ namespace vv {
 		obj.model->draw(commandBuffer, instanceCount);
 	}
 
-	void SimpleRenderSystem::createBuffers(std::vector<VoxelData>& voxelData, std::vector<std::vector<uint32_t>> models)
+	void SimpleRenderSystem::createBuffers(std::vector<VoxelData>& voxelData, std::vector<std::vector<uint32_t>> models, VkDescriptorImageInfo offscreenDescriptor)
 	{
 		//Create descriptor pool
 
 		VkDescriptorPoolSize poolSizes[] = {
 			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2 }
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2 },
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
 		};
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.poolSizeCount = 2;
+		poolInfo.poolSizeCount = 3;
 		poolInfo.pPoolSizes = poolSizes;
 		poolInfo.maxSets = 1;
 		
@@ -140,11 +158,18 @@ namespace vv {
 		ssboLayoutBinding2.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		ssboLayoutBinding2.pImmutableSamplers = nullptr;
 
-		VkDescriptorSetLayoutBinding layoutBindings[] = { uboLayoutBinding, ssboLayoutBinding1, ssboLayoutBinding2 };
+		VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+		samplerLayoutBinding.binding = 3;
+		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerLayoutBinding.descriptorCount = 1;
+		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		samplerLayoutBinding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding layoutBindings[] = { uboLayoutBinding, ssboLayoutBinding1, ssboLayoutBinding2, samplerLayoutBinding };
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 3;
+		layoutInfo.bindingCount = 4;
 		layoutInfo.pBindings = layoutBindings;
 
 		VkDescriptorSetLayout descriptorSetLayout;
@@ -326,10 +351,27 @@ namespace vv {
 		memcpy(ssboMappedData2, voxelData.data(), (uint64_t)sizeof(VoxelData) * voxelData.size());
 		vkUnmapMemory(vvDevice.device(), ssboBufferMemory2);
 
+
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = offscreenDescriptor.imageView;
+		imageInfo.sampler = offscreenDescriptor.sampler;
+
+		VkWriteDescriptorSet samplerDescriptorWrite{};
+		samplerDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		samplerDescriptorWrite.dstSet = descriptorSet;
+		samplerDescriptorWrite.dstBinding = 3;
+		samplerDescriptorWrite.dstArrayElement = 0;
+		samplerDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerDescriptorWrite.descriptorCount = 1;
+		samplerDescriptorWrite.pImageInfo = &imageInfo;
+
 		//Push writes
 		descriptorWrites.push_back(uniformDescriptorWrite);
 		descriptorWrites.push_back(ssboDescriptorWrite1);
 		descriptorWrites.push_back(ssboDescriptorWrite2);
+		descriptorWrites.push_back(samplerDescriptorWrite);
+
 
 		vkUpdateDescriptorSets(vvDevice.device(), descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 

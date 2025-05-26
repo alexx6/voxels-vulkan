@@ -23,7 +23,7 @@ namespace vv {
 	}
 
 	void App::run() {
-		SimpleRenderSystem simpleRenderSystem{ vvDevice, vvRenderer.getSwapChainRenderPass() };
+    SimpleRenderSystem simpleRenderSystem{ vvDevice, vvRenderer.getSwapChainRenderPass(), vvRenderer.getOffScreenRenderPass() };
 
     loadGameObjects(simpleRenderSystem);
 
@@ -65,8 +65,12 @@ namespace vv {
       camera.setPerspectiveProjection(glm::radians(60.f), aspect, 0.0f, 2000000.f);
 
 			if (auto commandBuffer = vvRenderer.beginFrame()) {
+        vvRenderer.beginOffscreenRenderPass(commandBuffer);
+        simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera, 0);
+        vvRenderer.endOffscreenRenderPass(commandBuffer);
+
 				vvRenderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
+				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera, 1);
 				vvRenderer.endSwapChainRenderPass(commandBuffer);
 				vvRenderer.endFrame();
 			}
@@ -347,7 +351,7 @@ namespace vv {
         gameObjects.push_back(std::move(cube1));
 
         simpleRenderSystem.instanceCount = vd.size();
-        simpleRenderSystem.createBuffers(vd, models);
+        simpleRenderSystem.createBuffers(vd, models, vvRenderer.getOffscreenDescriptor());
 
         //auto cube1 = VvGameObject::createGameObject();
 

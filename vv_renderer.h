@@ -18,6 +18,8 @@ namespace vv {
 		VvRenderer& operator=(const VvRenderer&) = delete;
 
 		VkRenderPass getSwapChainRenderPass() const { return vvSwapChain->getRenderPass(); };
+		VkRenderPass getOffScreenRenderPass() const { return vvSwapChain->getOffscreenPass().renderPass; };
+
 		float getAspectRatio() const { return vvSwapChain->extentAspectRatio(); };
 		bool isFrameInProgress() const { return isFrameStarted; };
 
@@ -35,6 +37,12 @@ namespace vv {
 		void endFrame();
 		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
 		void endSwapChainRenderPass(VkCommandBuffer commandBuffer);
+
+		void beginOffscreenRenderPass(VkCommandBuffer commandBuffer);
+
+		void endOffscreenRenderPass(VkCommandBuffer commandBuffer);
+
+		VkDescriptorImageInfo getOffscreenDescriptor() const;
 
 	private:
 		void createCommandBuffers();
