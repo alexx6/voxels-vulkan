@@ -10,8 +10,9 @@ namespace vv {
 		VvDevice& device,
 		const std::string& vertFilePath,
 		const std::string& fragFilePath,
+		const std::string& computeFilePath,
 		const PipelineConfigInfo& configInfo) : vvDevice(device) {
-		createGraphicsPipeline(vertFilePath, fragFilePath, configInfo);
+		createGraphicsPipeline(vertFilePath, fragFilePath, computeFilePath, configInfo);
 	}
 
 	VvPipeline::~VvPipeline() {
@@ -22,6 +23,10 @@ namespace vv {
 
 	void VvPipeline::bind(VkCommandBuffer commandBuffer) {
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+	}
+
+	void VvPipeline::bindCompute(VkCommandBuffer commandBuffer) {
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 	}
 
 	void VvPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
@@ -115,6 +120,7 @@ namespace vv {
 	void VvPipeline::createGraphicsPipeline(
 		const std::string& vertFilePath, 
 		const std::string& fragFilePath,
+		const std::string& computeFilePath,
 		const PipelineConfigInfo& configInfo) {
 		
 		assert(configInfo.pipelineLayout != VK_NULL_HANDLE &&
@@ -125,9 +131,11 @@ namespace vv {
 
 		auto vertCode = readFile(vertFilePath);
 		auto fragCode = readFile(fragFilePath);
+		auto computeCode = readFile(computeFilePath);
 
 		createShaderModule(vertCode, &vertShaderModule);
 		createShaderModule(fragCode, &fragShaderModule);
+		createShaderModule(computeCode, &computeShaderModule);
 
 		VkPipelineShaderStageCreateInfo shaderStages[2];
 		shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -145,7 +153,7 @@ namespace vv {
 		shaderStages[1].flags = 0;
 		shaderStages[1].pNext = nullptr;
 		shaderStages[1].pSpecializationInfo = nullptr;
-		
+
 		auto bindingDescriptions = VvModel::Vertex::getBindingDescriptions();
 		auto attributeDescriptions = VvModel::Vertex::getAttributeDescriptions();
 
@@ -178,6 +186,29 @@ namespace vv {
 
 		if (vkCreateGraphicsPipelines(vvDevice.device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create graphics pipeline");
+		}
+
+		VkPipelineShaderStageCreateInfo computeStageInfo{};
+		computeStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		computeStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+		computeStageInfo.module = computeShaderModule;
+		computeStageInfo.pName = "main";
+
+		VkComputePipelineCreateInfo pipelineInfoCompute{};
+		pipelineInfoCompute.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+		pipelineInfoCompute.stage = computeStageInfo;
+		pipelineInfoCompute.layout = configInfo.pipelineLayout;
+		pipelineInfoCompute.basePipelineHandle = VK_NULL_HANDLE;
+		pipelineInfoCompute.basePipelineIndex = -1;
+
+		if (vkCreateComputePipelines(
+			vvDevice.device(),
+			VK_NULL_HANDLE,
+			1,
+			&pipelineInfoCompute,
+			nullptr,
+			&computePipeline) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create compute pipeline");
 		}
 
 		//std::cout << "Vertex shader code size: " << vertCode.size() << std::endl;

@@ -65,9 +65,87 @@ namespace vv {
       camera.setPerspectiveProjection(glm::radians(60.f), aspect, 0.0f, 2000000.f);
 
 			if (auto commandBuffer = vvRenderer.beginFrame()) {
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Текущий layout
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;   // Требуемый layout
+        barrier.image = simpleRenderSystem.storageImage;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
+        vkCmdPipelineBarrier(
+          commandBuffer,
+          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,    // Самые ранние возможные стадии
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Или FRAGMENT_SHADER_BIT
+          0,
+          0, nullptr,
+          0, nullptr,
+          1, &barrier
+        );
+
+        VkImageMemoryBarrier barrier1{};
+        barrier1.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier1.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Текущий layout
+        barrier1.newLayout = VK_IMAGE_LAYOUT_GENERAL;   // Требуемый layout
+        barrier1.image = simpleRenderSystem.storageImage1;
+        barrier1.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier1.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier1.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier1.subresourceRange.baseMipLevel = 0;
+        barrier1.subresourceRange.levelCount = 1;
+        barrier1.subresourceRange.baseArrayLayer = 0;
+        barrier1.subresourceRange.layerCount = 1;
+        barrier1.srcAccessMask = 0;
+        barrier1.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
+        vkCmdPipelineBarrier(
+          commandBuffer,
+          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,    // Самые ранние возможные стадии
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Или FRAGMENT_SHADER_BIT
+          0,
+          0, nullptr,
+          0, nullptr,
+          1, &barrier1
+        );
+
+        VkImageMemoryBarrier barrier2{};
+        barrier2.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier2.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Текущий layout
+        barrier2.newLayout = VK_IMAGE_LAYOUT_GENERAL;   // Требуемый layout
+        barrier2.image = simpleRenderSystem.storageImage2;
+        barrier2.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier2.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier2.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier2.subresourceRange.baseMipLevel = 0;
+        barrier2.subresourceRange.levelCount = 1;
+        barrier2.subresourceRange.baseArrayLayer = 0;
+        barrier2.subresourceRange.layerCount = 1;
+        barrier2.srcAccessMask = 0;
+        barrier2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
+        vkCmdPipelineBarrier(
+          commandBuffer,
+          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,    // Самые ранние возможные стадии
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Или FRAGMENT_SHADER_BIT
+          0,
+          0, nullptr,
+          0, nullptr,
+          1, &barrier2
+        );
+
 				vvRenderer.beginSwapChainRenderPass(commandBuffer);
 				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
 				vvRenderer.endSwapChainRenderPass(commandBuffer);
+
+        simpleRenderSystem.doComputeShader(commandBuffer);
+
 				vvRenderer.endFrame();
 			}
 		}

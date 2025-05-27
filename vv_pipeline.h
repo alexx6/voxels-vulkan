@@ -28,6 +28,7 @@ namespace vv {
 			VvDevice &device, 
 			const std::string& vertFilePath,
 			const std::string& fragFilePath, 
+			const std::string& computeFilePath,
 			const PipelineConfigInfo& configInfo);
 
 		~VvPipeline();
@@ -37,6 +38,8 @@ namespace vv {
 		VvPipeline() = default;
 
 		void bind(VkCommandBuffer commandBuffer);
+		void bindCompute(VkCommandBuffer commandBuffer);
+
 		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
 	private:
 		static std::vector<char> readFile(const std::string& filepath);
@@ -44,13 +47,16 @@ namespace vv {
 		void createGraphicsPipeline(
 			const std::string& vertFilePath,
 			const std::string& fragFilePath,
+			const std::string& computeFilePath,
 			const PipelineConfigInfo& configInfo);
 		
 		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
 
 		VvDevice& vvDevice;
 		VkPipeline graphicsPipeline;
+		VkPipeline computePipeline;
 		VkShaderModule vertShaderModule;
 		VkShaderModule fragShaderModule;
+		VkShaderModule computeShaderModule;
 	};
 }

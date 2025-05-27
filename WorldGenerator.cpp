@@ -16,11 +16,12 @@ namespace vv {
 		noise.SetSeed(777);
 		noise.SetFrequency(0.0005f);
 
-		for (int i = 0; i < 1000000; ++i)
+		for (int i = 0; i < 10000000; ++i)
 		{
-			uint32_t modelId = i % (modelSizes.size() - 1);
 
 			glm::ivec3 pos(i % 100 * 300, i / 10000 * 300, i / 100 % 100 * 300);
+			uint32_t modelId = int(noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) * 100 + 100) % (modelSizes.size());
+
 			//pos += glm::ivec3(rand() / (float)RAND_MAX * 200, rand() / (float)RAND_MAX * 200, rand() / (float)RAND_MAX * 200);
 
 			//std::cout << noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) << std::endl;

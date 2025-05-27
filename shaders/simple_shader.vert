@@ -11,6 +11,8 @@ layout (location = 6) out flat uint orientation;
 
 layout(location = 0) out vec3 fragColor;
 
+layout(binding = 3, r32ui) uniform readonly uimage2D storageTexture1;
+
 layout(push_constant) uniform Push {
 	mat4 transform;
 	mat4 projectionView;
@@ -56,11 +58,11 @@ void main() {
 	modelSize = ssbo.vd[gl_InstanceIndex].size;
 	orientation = ssbo.vd[gl_InstanceIndex].orientation;
 //
-//	if (length(vbPos - vec3(matrices.inverseView[3])) > 1000) 
+//	if (length(vbPos - vec3(matrices.inverseView[3])) > imageLoad(storageTexture1, ivec2((gl_Position.xy / gl_Position.w * 0.5 + 0.5) * vec2(1920, 1080))).x + 1024)
 //	{
 //		gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
 //	}
-
+//
 	priority = gl_InstanceIndex;
 //	gl_Position += vec4(ssbo.vd[gl_InstanceIndex].pos, 0);
 	fragColor = vec3(ssbo.vd[gl_InstanceIndex].modelOffset);

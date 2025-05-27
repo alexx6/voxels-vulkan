@@ -1,0 +1,29 @@
+#version 430
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 3, r32ui) uniform coherent uimage2D storageTexture1;
+layout(binding = 4, r32ui) uniform coherent uimage2D storageTexture2;
+layout(binding = 5, r32ui) uniform coherent uimage2D storageTexture3;
+
+void main() {
+	 ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+		
+	if (imageLoad(storageTexture1, coord).x == 0 || imageAtomicExchange(storageTexture2,  coord, 0) == 0)
+	{
+	 imageAtomicExchange(storageTexture1,  coord, 20000000);
+	}
+
+//	imageAtomicExchange(storageTexture3, coord, imageLoad(storageTexture2, coord).x);
+//   uint dist = imageAtomicMax(storageTexture1,  coord,  (1 - imageLoad(storageTexture2, coord).x) * 20000000);
+	 
+//	 imageAtomicExchange(storageTexture2,  coord, uint(mix(uint(dist < 20000000), 1, 0)));
+
+//    uint val = imageLoad(distanceTexture, coord).r;
+//    
+//    // ≈сли значение осталось "необработанным"
+//    if (val == floatBitsToUint(20000000.0f)) {
+//        // ћожно выполнить какие-то специальные действи€
+//        // Ќапример, пометить особым значением
+//        imageStore(distanceTexture, coord, uvec4(floatBitsToUint(-1.0f)));
+//    }
+}

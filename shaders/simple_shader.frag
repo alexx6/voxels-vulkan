@@ -10,6 +10,10 @@ layout (location = 4) in flat uint modelSize;
 layout (location = 5) in flat uint priority;
 layout (location = 6) in flat uint orientation;
 
+layout(binding = 3, r32ui) uniform coherent uimage2D storageTexture1;
+layout(binding = 4, r32ui) uniform coherent uimage2D storageTexture2;
+layout(binding = 5, r32ui) uniform coherent uimage2D storageTexture3;
+
 uint sizeLevel = uint(log2(modelSize));
 
 layout(push_constant) uniform Push {
@@ -351,8 +355,23 @@ void main() {
 	ivec3 vPos;
 	ivec3 vNormal;
 
+	uint dist = imageLoad(storageTexture1, ivec2(gl_FragCoord.xy)).x;
+
+	if (length(startPos - vec3(matrices.inverseView[3])) > dist + 1)
+	{
+		discard;
+	}
+
 	outColor = traceVoxelBoxTree();
+
 	float distanceToCamera = length(startPos - vec3(matrices.inverseView[3])) + length(treeStartPos - treePos);
-	gl_FragDepth = max(distanceToCamera / 2000000.0, 0);
-	gl_FragDepth *= (1 - priority * 0.0000001);
+
+	gl_FragDepth = max(distanceToCamera / 20000000.0, 0);
+
+	imageAtomicMin(storageTexture1,  ivec2(gl_FragCoord.xy), uint(distanceToCamera));
+
+	imageAtomicExchange(storageTexture2,  ivec2(gl_FragCoord.xy), 1);
+
+
+	gl_FragDepth *= (1 - priority * 0.00000001);
 }

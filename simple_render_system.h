@@ -20,10 +20,15 @@ namespace vv {
 		void createBuffers(std::vector<VoxelData>& voxelData, std::vector<std::vector<uint32_t>> models);
 		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<VvGameObject> &gameObjects, const VvCamera &camera);
 
+		void doComputeShader(VkCommandBuffer commandBuffer);
+
 		void* ssboMappedData1;
 		void* ssboMappedData2;
 
 		uint32_t instanceCount = 0;
+		VkImage storageImage;
+		VkImage storageImage1;
+		VkImage storageImage2;
 	private:
 		void createPipelineLayout();
 		void createPipeline();
@@ -31,6 +36,8 @@ namespace vv {
 		VkBuffer uniformBuffer;
 		VkDeviceMemory uniformBufferMemory;
 		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+		VkWriteDescriptorSet getImageDescriptorWrite();
+
 		VvDevice& vvDevice;
 
 		std::unique_ptr<VvPipeline> vvPipeline;
