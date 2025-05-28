@@ -1,6 +1,8 @@
 #include "WorldGenerator.h"
 #include "FastNoiseLite.h"
 #include <iostream>
+#include <future>
+
 namespace vv {
 	WorldGenerator::WorldGenerator(std::vector<uint32_t> ms, std::vector<uint32_t> mo)
 	{
@@ -16,18 +18,41 @@ namespace vv {
 		noise.SetSeed(777);
 		noise.SetFrequency(0.0005f);
 
-		for (int i = 0; i < 10000000; ++i)
+		const int numThreads = std::thread::hardware_concurrency();
+		const int groupSize = 7077888 / numThreads;
+
+		std::vector<std::future<std::vector<VoxelData>>> futures;
+
+		for (int t = 0; t < numThreads; ++t) 
 		{
+			int start = t * groupSize;
+			int end = (t == numThreads - 1) ? 7077888 : start + groupSize;
 
-			glm::ivec3 pos(i % 100 * 300, i / 10000 * 300, i / 100 % 100 * 300);
-			uint32_t modelId = int(noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) * 100 + 100) % (modelSizes.size());
+			futures.push_back(std::async(std::launch::async, [this, &noise, start, end]() {
+				std::vector<VoxelData> localVd;
 
-			//pos += glm::ivec3(rand() / (float)RAND_MAX * 200, rand() / (float)RAND_MAX * 200, rand() / (float)RAND_MAX * 200);
+				for (int i = start; i < end; ++i)
+				{
 
-			//std::cout << noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) << std::endl;
-			if (noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) > 0.3) {
-				vd.push_back(getVoxelInstance(pos, i % 4, modelId));
-			}
+					glm::ivec3 pos(i % 192 * 300, i / 36864 * 300, i / 192 % 192 * 300);
+					uint32_t modelId = int(noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) * 100 + 100) % (modelSizes.size());
+
+					//pos += glm::ivec3(rand() / (float)RAND_MAX * 200, rand() / (float)RAND_MAX * 200, rand() / (float)RAND_MAX * 200);
+
+					//std::cout << noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) << std::endl;
+					if (noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) > 0.3) {
+						localVd.push_back(getVoxelInstance(pos, i % 4, modelId));
+					}
+				}
+
+				return localVd;
+			}));
+
+		}
+
+		for (auto& future : futures) {
+			auto result = future.get();
+			vd.insert(vd.end(), result.begin(), result.end());
 		}
 
 		//fallback
