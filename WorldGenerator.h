@@ -7,14 +7,16 @@ namespace vv {
 	class WorldGenerator
 	{
 	public:
-		WorldGenerator(std::vector<uint32_t> ms, std::vector<uint32_t> mo);
+		//WorldGenerator(std::vector<uint32_t> ms, std::vector<uint32_t> mo);
 
-		void generateChunk(std::vector<VoxelData>& vd, uint32_t x, uint32_t y);
+		VoxelChunk generateChunk(glm::ivec3 chunkPos);
 
 		std::vector<uint32_t> modelSizes;
 		std::vector<uint32_t> modelOffsets;
+		std::vector<uint32_t> modelDataSizes;
 
-		VoxelData getVoxelInstance(glm::ivec3 pos, uint32_t orientation, uint32_t modelId);
+		VoxelData getVoxelInstance(glm::ivec3 pos, uint32_t orientation, uint32_t modelId, bool disableLOD = false);
+		void addModelInfo(uint32_t modelSize, uint32_t dataSize);
 	};
 
 }

@@ -73,6 +73,87 @@ namespace vv {
 
 		return { model.size, compressedData };
 	}
+
+	VoxelModel VoxelTree::voxelizeChunk(VoxelChunk &chunk, std::vector<uint32_t> modelColors) {
+		std::vector<uint32_t> compressedData;
+
+		std::vector<uint32_t> data(128 * 128 * 128);
+
+		for (auto& object : chunk.chunkData)
+		{	
+			if (object.size == 512)
+				continue;
+
+			glm::ivec3 localPos = object.pos - chunk.pos * 256 * 64;
+			
+			glm::ivec3 convertedPos = localPos / 256;
+
+			//assert(glm::all(glm::lessThan(convertedPos, glm::ivec3(128))));
+			uint32_t index = convertedPos.x + convertedPos.y * 128 * 128 + convertedPos.z * 128;
+
+			data[index] = modelColors[object.modelId];
+		}
+
+		for (auto& object : chunk.chunkData)
+		{
+			if (object.size < 512)
+				continue;
+
+			glm::ivec3 localPos = object.pos - chunk.pos * 256 * 64;
+
+			glm::ivec3 convertedPos = localPos / 256;
+
+			//assert(glm::all(glm::lessThan(convertedPos, glm::ivec3(128))));
+			glm::ivec3 curPos;
+			uint32_t index;
+
+			curPos = convertedPos + glm::ivec3(0, 0, 0);
+			index = convertedPos.x + convertedPos.y * 128 * 128 + convertedPos.z * 128;
+			if (index < data.size())
+				data[index] = modelColors[object.modelId];
+
+			curPos = convertedPos + glm::ivec3(0, 0, 1);
+			index = convertedPos.x + convertedPos.y * 128 * 128 + convertedPos.z * 128;
+			if (index < data.size())
+				data[index] = modelColors[object.modelId];
+
+			curPos = convertedPos + glm::ivec3(0, 1, 0);
+			index = convertedPos.x + convertedPos.y * 128 * 128 + convertedPos.z * 128;
+			if (index < data.size())
+				data[index] = modelColors[object.modelId];
+
+			curPos = convertedPos + glm::ivec3(0, 1, 1);
+			index = convertedPos.x + convertedPos.y * 128 * 128 + convertedPos.z * 128;
+			if (index < data.size())
+				data[index] = modelColors[object.modelId];
+
+			curPos = convertedPos + glm::ivec3(1, 0, 0);
+			index = convertedPos.x + convertedPos.y * 128 * 128 + convertedPos.z * 128;
+			if (index < data.size())
+				data[index] = modelColors[object.modelId];
+
+			curPos = convertedPos + glm::ivec3(1, 0, 1);
+			index = convertedPos.x + convertedPos.y * 128 * 128 + convertedPos.z * 128;
+			if (index < data.size())
+				data[index] = modelColors[object.modelId];
+
+			curPos = convertedPos + glm::ivec3(1, 1, 0);
+			index = convertedPos.x + convertedPos.y * 128 * 128 + convertedPos.z * 128;
+			if (index < data.size())
+				data[index] = modelColors[object.modelId];
+
+			curPos = convertedPos + glm::ivec3(1, 1, 1);
+			index = convertedPos.x + convertedPos.y * 128 * 128 + convertedPos.z * 128;
+			if (index < data.size())
+				data[index] = modelColors[object.modelId];
+		}
+
+		VoxelNode* cg = compressGrid(data.data(), glm::ivec3(0), 128, 128);
+
+		serialize(cg, compressedData);
+
+		return { 128, compressedData };
+	}
 	
 	//stupid implementaions for now
 

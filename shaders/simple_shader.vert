@@ -8,6 +8,7 @@ layout (location = 3) out flat uint modelOffset;
 layout (location = 4) out flat uint modelSize;
 layout (location = 5) out flat uint priority;
 layout (location = 6) out flat uint orientation;
+layout (location = 7) out flat uint disableLOD;
 
 layout(location = 0) out vec3 fragColor;
 
@@ -32,7 +33,9 @@ struct VoxelData
 	ivec3 pos;
 	uint size;
 	uint orientation;
+	uint modelId;
 	uint modelOffset;
+	uint disableLOD;
 };
 
 layout(binding = 2) buffer StorageBuffer {
@@ -57,6 +60,8 @@ void main() {
 	modelOffset = ssbo.vd[gl_InstanceIndex].modelOffset;
 	modelSize = ssbo.vd[gl_InstanceIndex].size;
 	orientation = ssbo.vd[gl_InstanceIndex].orientation;
+	disableLOD = ssbo.vd[gl_InstanceIndex].disableLOD;
+
 //
 //	if (length(vbPos - vec3(matrices.inverseView[3])) > imageLoad(storageTexture1, ivec2((gl_Position.xy / gl_Position.w * 0.5 + 0.5) * vec2(1920, 1080))).x + 1024)
 //	{

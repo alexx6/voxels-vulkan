@@ -29,11 +29,11 @@ namespace vv {
 		VkImage storageImage;
 		VkImage storageImage1;
 		VkImage storageImage2;
+		VkBuffer uniformBuffer;
 	private:
 		void createPipelineLayout();
 		void createPipeline();
 		VkRenderPass renderPass;
-		VkBuffer uniformBuffer;
 		VkDeviceMemory uniformBufferMemory;
 		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 		VkWriteDescriptorSet getImageDescriptorWrite();

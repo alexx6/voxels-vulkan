@@ -30,6 +30,7 @@ namespace vv {
 		static VoxelNode* compressGrid(const uint32_t* data, glm::ivec3 pos, uint32_t treeDim, uint32_t curDim);
 		static void serialize(VoxelNode* node, std::vector<uint32_t>& serializedData);
 		static VoxelModel getCompressedData(VoxelModel model);
+		static VoxelModel voxelizeChunk(VoxelChunk &chunk, std::vector<uint32_t> modelColors);
 	};
 }
 

@@ -7,6 +7,8 @@
 #include <fstream>
 #include "VoxelTree.h"
 #include "WorldGenerator.h"
+#include <future>
+#include <mutex>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -14,6 +16,8 @@
 #include "glm/gtc/constants.hpp"
 
 #include <chrono>
+
+std::mutex writeMutex;
 
 namespace vv {
 	App::App() {
@@ -132,8 +136,8 @@ namespace vv {
 
         vkCmdPipelineBarrier(
           commandBuffer,
-          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,    // Самые ранние возможные стадии
-          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Или FRAGMENT_SHADER_BIT
+          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
           0,
           0, nullptr,
           0, nullptr,
@@ -364,9 +368,10 @@ namespace vv {
           file.close();
         }
 
+        WorldGenerator generator;
         std::vector<std::vector<uint32_t>> models;
-        std::vector<uint32_t> modelSizes;
-        std::vector<uint32_t> modelOffsets;
+
+        std::vector<uint32_t> modelColors;
         uint32_t curOffset = 0;
 
         for (int i = 0; i < modelNames.size(); ++i)
@@ -388,18 +393,97 @@ namespace vv {
           file.read(reinterpret_cast<char*>(modelData.data()), size * sizeof(uint32_t));
           file.close();
 
-          models.push_back(modelData);
-          modelSizes.push_back(modelSize);
 
-          modelOffsets.push_back(curOffset);
+          models.push_back(modelData);
+
+          generator.addModelInfo(modelSize, modelData.size());
+
+          modelColors.push_back(modelData[1]);
+
           curOffset += modelData.size();
         }
 
         std::vector<VoxelData> vd;
 
-        WorldGenerator generator(modelSizes, modelOffsets);
+        glm::ivec3 worldSize(1, 1, 1);
 
-        generator.generateChunk(vd, 0, 0);
+        //const int numThreads = std::thread::hardware_concurrency();
+        //const int totalChunks = worldSize.x * worldSize.y * worldSize.z;
+        //const int groupSize = totalChunks / numThreads;
+        //
+        //struct GenResult
+        //{
+        //  VoxelData data;
+        //  VoxelModel model;
+        //};
+
+        //std::vector<std::future<std::vector<VoxelData>>> futures;
+        //
+        //VoxelChunk chunk = generator.generateChunk(glm::ivec3(0, 0, 0));
+
+        //for (int t = 0; t < numThreads; ++t)
+        //{
+        //  int start = t * groupSize;
+        //  int end = (t == numThreads - 1) ? totalChunks : start + groupSize;
+
+
+        //  futures.push_back(std::async(std::launch::async, [this, &generator, &worldSize, &models, &modelColors, &modelNames, &chunk, start, end]() {
+        //    std::vector<VoxelData> localVd;
+
+        //    for (int i = start; i < end; ++i)
+        //    {
+        //      int x = i % worldSize.x;
+        //      int y = i / worldSize.x / worldSize.z;
+        //      int z = i / worldSize.x % worldSize.z;
+
+        //      std::vector<uint32_t> md = VoxelTree::voxelizeChunk(chunk, modelColors).modelData;
+
+        //      {
+        //        std::lock_guard<std::mutex> lock(writeMutex);
+        //        models.push_back(md);
+        //        generator.addModelInfo(128 * 256, models.back().size());
+
+        //        localVd.push_back(generator.getVoxelInstance(glm::ivec3(x * 64 * 256, y * 64 * 256, z * 64 * 256), 0, modelNames.size(), true));
+        //      }
+
+        //      std::cout << "CURRENT GENERATION PROGRESS : " << z + x * worldSize.x + y * worldSize.x * worldSize.y << std::endl;
+
+        //    }
+
+        //    return localVd;
+        //  }));
+        //}
+
+        //for (auto& future : futures) {
+        //  auto result = future.get();
+        //  vd.insert(vd.end(), result.begin(), result.end());
+        //}
+
+        for (int i = 0; i < worldSize.x; ++i)
+        {
+          for (int j = 0; j < worldSize.y; ++j)
+          {
+            for (int k = 0; k < worldSize.z; ++k)
+            {
+              VoxelChunk chunk = generator.generateChunk(glm::ivec3(i, j, k));
+
+              models.push_back(VoxelTree::voxelizeChunk(chunk, modelColors).modelData);
+
+              generator.addModelInfo(128 * 256, models.back().size());
+
+              //vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+              vd.push_back(generator.getVoxelInstance(glm::ivec3(i * 64 * 256, j * 64 * 256, k * 64 * 256), 0, models.size() - 1, true));
+
+              std::cout << "CURRENT GENERATION PROGRESS : " << k + j * worldSize.x + i * worldSize.x * worldSize.y << std::endl;
+            } 
+          }
+        }
+
+        VoxelChunk chunk = generator.generateChunk(glm::ivec3(1, 0, 0));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        //models.push_back(VoxelTree::getCompressedData(generator.generateChunkShellModel()).modelData);
+        //vd.push_back(generator.getVoxelInstance(glm::ivec3(0), 0, modelNames.size()));
 
         //for (int i = 0; i < 1000; ++i) 
         //{

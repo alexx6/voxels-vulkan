@@ -9,6 +9,7 @@ layout (location = 3) in flat uint modelOffset;
 layout (location = 4) in flat uint modelSize;
 layout (location = 5) in flat uint priority;
 layout (location = 6) in flat uint orientation;
+layout (location = 7) in flat uint disableLOD;
 
 layout(binding = 3, r32ui) uniform coherent uimage2D storageTexture1;
 layout(binding = 4, r32ui) uniform coherent uimage2D storageTexture2;
@@ -30,7 +31,7 @@ layout(set = 0, binding = 0) uniform Matrices {
 		mat4 inverseProjection;
 } matrices;
 
-float maxDepth = sizeLevel * sqrt(2000 / length(vbPos + modelSize * 0.5 - vec3(matrices.inverseView[3])));
+float maxDepth = sizeLevel * sqrt(2000 / length(vbPos + modelSize * 0.5 - vec3(matrices.inverseView[3]))) + disableLOD * 100000000;
 
 layout(binding = 1) buffer StorageBuffer {
     uint data[];
@@ -351,6 +352,7 @@ void main() {
 	startPos = fwpos;
 
 	rayDir = normalize(startPos - vec3(matrices.inverseView[3]));
+
 	treePos = startPos - vbPos;
 	ivec3 vPos;
 	ivec3 vNormal;

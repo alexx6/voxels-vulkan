@@ -30,12 +30,19 @@ namespace vv {
 		alignas(16) glm::ivec3 pos{};
 		alignas(4) uint32_t size = 0;
 		alignas(4) uint32_t orientation = 0;
+		alignas(4) uint32_t modelId = 0;
 		alignas(4) uint32_t modelOffset = 0;
+		alignas(4) uint32_t disableLOD = 0;
 	};
 
 	struct VoxelModel {
 		uint32_t size;
 		std::vector<uint32_t> modelData;
+	};
+
+	struct VoxelChunk {
+		glm::ivec3 pos{};
+		std::vector<VoxelData> chunkData;
 	};
 
 	class VvGameObject {
