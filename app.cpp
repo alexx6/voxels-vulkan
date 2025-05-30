@@ -159,48 +159,29 @@ namespace vv {
     std::unique_ptr<VvModel> createCubeModel(VvDevice& device, glm::vec3 offset) {
         VvModel::Builder modelBuilder{};
         modelBuilder.vertices = {
-            // left face (white)
-            {{0.f, 0.f, 0.f}, {.9f, .9f, .9f}},
-            {{0.f, 1.f, 1.f}, {.9f, .9f, .9f}},
-            {{0.f, 0.f, 1.f}, {.9f, .9f, .9f}},
-            {{0.f, 1.f, 0.f}, {.9f, .9f, .9f}},
+          {{0.f, 0.f, 0.f}, {.9f, .9f, .9f}},
+          {{0.f, 1.f, 0.f}, {.9f, .9f, .9f}},
+          {{0.f, 1.f, 1.f}, {.9f, .9f, .9f}},
+          {{0.f, 0.f, 1.f}, {.9f, .9f, .9f}},
 
-            // right face (yellow)
-            {{1.f, 0.f, 0.f}, {.8f, .8f, .1f}},
-            {{1.f, 1.f, 1.f}, {.8f, .8f, .1f}},
-            {{1.f, 0.f, 1.f}, {.8f, .8f, .1f}},
-            {{1.f, 1.f, 0.f}, {.8f, .8f, .1f}},
-
-            // top face (orange, remember y axis points down)
-            {{0.f, 0.f, 0.f}, {.9f, .6f, .1f}},
-            {{1.f, 0.f, 1.f}, {.9f, .6f, .1f}},
-            {{0.f, 0.f, 1.f}, {.9f, .6f, .1f}},
-            {{1.f, 0.f, 0.f}, {.9f, .6f, .1f}},
-
-            // bottom face (red)
-            {{0.f, 1.f, 0.f}, {.8f, .1f, .1f}},
-            {{1.f, 1.f, 1.f}, {.8f, .1f, .1f}},
-            {{0.f, 1.f, 1.f}, {.8f, .1f, .1f}},
-            {{1.f, 1.f, 0.f}, {.8f, .1f, .1f}},
-
-            // nose face (blue)
-            {{0.f, 0.f, 1.f}, {.1f, .1f, .8f}},
-            {{1.f, 1.f, 1.f}, {.1f, .1f, .8f}},
-            {{0.f, 1.f, 1.f}, {.1f, .1f, .8f}},
-            {{1.f, 0.f, 1.f}, {.1f, .1f, .8f}},
-
-            // tail face (green)
-            {{0.f, 0.f, 0.f}, {.1f, .8f, .1f}},
-            {{1.f, 1.f, 0.f}, {.1f, .8f, .1f}},
-            {{0.f, 1.f, 0.f}, {.1f, .8f, .1f}},
-            {{1.f, 0.f, 0.f}, {.1f, .8f, .1f}},
+          {{1.f, 0.f, 0.f}, {.9f, .9f, .9f}},
+          {{1.f, 1.f, 0.f}, {.9f, .9f, .9f}},
+          {{1.f, 1.f, 1.f}, {.9f, .9f, .9f}},
+          {{1.f, 0.f, 1.f}, {.9f, .9f, .9f}},
         };
+
         for (auto& v : modelBuilder.vertices) {
-            v.position += offset;
+          v.position += offset;
         }
 
-        modelBuilder.indices = { 0,  1,  2,  0,  3,  1,  4,  5,  6,  4,  7,  5,  8,  9,  10, 8,  11, 9,
-                                12, 13, 14, 12, 15, 13, 16, 17, 18, 16, 19, 17, 20, 21, 22, 20, 23, 21 };
+        modelBuilder.indices = {
+          0, 1, 2,  0, 2, 3,
+          4, 5, 1,  4, 1, 0,
+          7, 6, 5,  7, 5, 4,
+          3, 2, 6,  3, 6, 7,
+          1, 5, 6,  1, 6, 2,
+          4, 0, 3,  4, 3, 7
+        };
 
         return std::make_unique<VvModel>(device, modelBuilder);
     }
@@ -343,7 +324,7 @@ namespace vv {
 
         //std::vector<VoxelData> vd = loadVoxelModel();
 
-        std::vector<std::string> modelNames = { "rock_red", "rock_big", "rock", "crystal" };
+        std::vector<std::string> modelNames = { "rock_red", "crystal" };
 
         for (int i = 0; i < modelNames.size(); ++i)
         {
@@ -459,29 +440,111 @@ namespace vv {
         //  vd.insert(vd.end(), result.begin(), result.end());
         //}
 
-        for (int i = 0; i < worldSize.x; ++i)
-        {
-          for (int j = 0; j < worldSize.y; ++j)
-          {
-            for (int k = 0; k < worldSize.z; ++k)
-            {
-              VoxelChunk chunk = generator.generateChunk(glm::ivec3(i, j, k));
+        //for (int i = 0; i < worldSize.x; ++i)
+        //{
+        //  for (int j = 0; j < worldSize.y; ++j)
+        //  {
+        //    for (int k = 0; k < worldSize.z; ++k)
+        //    {
+        //      VoxelChunk chunk = generator.generateChunk(glm::ivec3(i, j, k));
 
-              models.push_back(VoxelTree::voxelizeChunk(chunk, modelColors).modelData);
+        //      models.push_back(VoxelTree::voxelizeChunk(chunk, modelColors).modelData);
 
-              generator.addModelInfo(128 * 256, models.back().size());
+        //      generator.addModelInfo(128 * 256, models.back().size());
 
-              //vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
-              vd.push_back(generator.getVoxelInstance(glm::ivec3(i * 64 * 256, j * 64 * 256, k * 64 * 256), 0, models.size() - 1, true));
+        //      //vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+        //      vd.push_back(generator.getVoxelInstance(glm::ivec3(i * 64 * 256, j * 64 * 256, k * 64 * 256), 0, models.size() - 1, true));
 
-              std::cout << "CURRENT GENERATION PROGRESS : " << k + j * worldSize.x + i * worldSize.x * worldSize.y << std::endl;
-            } 
-          }
-        }
+        //      std::cout << "CURRENT GENERATION PROGRESS : " << k + j * worldSize.x + i * worldSize.x * worldSize.y << std::endl;
+        //    } 
+        //  }
+        //}
 
-        VoxelChunk chunk = generator.generateChunk(glm::ivec3(1, 0, 0));
+        VoxelChunk chunk = generator.generateChunk(glm::ivec3(0, 0, 0));
         vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
 
+        chunk = generator.generateChunk(glm::ivec3(0, 0, 1));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(0, 0, 2));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(0, 1, 0));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(0, 1, 1));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(0, 1, 2));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(0, 2, 0));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(0, 2, 1));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(0, 2, 2));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(1, 0, 0));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(1, 0, 1));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(1, 0, 2));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(1, 1, 0));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(1, 1, 1));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(1, 1, 2));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(1, 2, 0));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(1, 2, 1));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(1, 2, 2));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(2, 0, 0));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(2, 0, 1));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(2, 0, 2));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(2, 1, 0));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(2, 1, 1));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(2, 1, 2));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(2, 2, 0));
+        //vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+        models.push_back(VoxelTree::voxelizeChunk(chunk, modelColors).modelData);
+        generator.addModelInfo(128 * 128, models.back().size());
+        //vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+        vd.push_back(generator.getVoxelInstance(glm::ivec3(2 * 64 * 256, 2 * 64 * 256, 0 * 64 * 256), 0, models.size() - 1, true));
+        
+        
+        chunk = generator.generateChunk(glm::ivec3(2, 2, 1));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
+
+        chunk = generator.generateChunk(glm::ivec3(2, 2, 2));
+        vd.insert(vd.end(), chunk.chunkData.begin(), chunk.chunkData.end());
         //models.push_back(VoxelTree::getCompressedData(generator.generateChunkShellModel()).modelData);
         //vd.push_back(generator.getVoxelInstance(glm::ivec3(0), 0, modelNames.size()));
 

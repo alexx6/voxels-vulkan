@@ -27,11 +27,12 @@ layout(push_constant) uniform Push {
 
 layout(set = 0, binding = 0) uniform Matrices {
     mat4 view;
+		mat4 projection;
     mat4 inverseView;
 		mat4 inverseProjection;
 } matrices;
 
-float maxDepth = sizeLevel * sqrt(2000 / length(vbPos + modelSize * 0.5 - vec3(matrices.inverseView[3]))) + disableLOD * 100000000;
+float maxDepth = sizeLevel * sqrt(1500 / length(vbPos + modelSize * 0.5 - vec3(matrices.inverseView[3]))) + disableLOD * 100000000;
 
 layout(binding = 1) buffer StorageBuffer {
     uint data[];
@@ -193,6 +194,7 @@ ivec3 nodeSize = ivec3(modelSize);
 ivec3 curOctant = ivec3(0);
 ivec3 nodePos = ivec3(0);
 vec3 treePos;
+vec3 cameraTreePos;
 bool isLeaf = false;
 vec3 invRayDir;
 ivec3 vdir;
@@ -311,16 +313,26 @@ vec4 traceVoxelBoxTree()
 	tracingData[0].octant = ivec3(0);
 	tracingData[0].nodePos = ivec3(0);
 
+	rayDir = -rayDir;
+	invRayDir = 1. / rayDir;
+	vdir = ivec3(greaterThan(rayDir, vec3(0.)));
+	stepTree();
 
-	treePos += rayDir * 0.001;
-	if (all(greaterThan(vec3(matrices.inverseView[3]) - vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - vbPos, vec3(modelSize))))
-	{
-		treePos = vec3(matrices.inverseView[3]) - vbPos;
-		startPos = vec3(matrices.inverseView[3]);
-	}
+	nextDir = 1 - nextDir;
+	rayDir = -rayDir;
 
-	treePos = orientations1[orientation % 4] * orientations2[orientation] * (treePos - vec3(modelSize * 0.5)) + vec3(modelSize * 0.5);
-	rayDir = orientations1[orientation % 4] * orientations2[orientation] * rayDir;
+	treePos = dot(rayDir, treePos - cameraTreePos) < 0 ? cameraTreePos : treePos;
+	startPos = dot(rayDir, treePos - cameraTreePos) < 0 ? matrices.inverseView[3].xyz : startPos;
+
+//	treePos += rayDir * 0.001;
+//	if (all(greaterThan(vec3(matrices.inverseView[3]) - vbPos, vec3(0))) && all(lessThan(vec3(matrices.inverseView[3]) - vbPos, vec3(modelSize))))
+//	{
+//		treePos = vec3(matrices.inverseView[3]) - vbPos;
+//		startPos = vec3(matrices.inverseView[3]);
+//	}
+
+//	treePos = orientations1[orientation % 4] * orientations2[orientation] * (treePos - vec3(modelSize * 0.5)) + vec3(modelSize * 0.5);
+//	rayDir = orientations1[orientation % 4] * orientations2[orientation] * rayDir;
 
 	treeStartPos = treePos;
 
@@ -349,31 +361,73 @@ vec4 traceVoxelBoxTree()
 }
 
 void main() {
+//	gl_FragDepth = 0;
+//	outColor = vec4(1);
+//	return;
+
 	startPos = fwpos;
+	float fragDistance = length(startPos - vec3(matrices.inverseView[3]));
 
 	rayDir = normalize(startPos - vec3(matrices.inverseView[3]));
-
+	
 	treePos = startPos - vbPos;
+
+	cameraTreePos = matrices.inverseView[3].xyz - vbPos;
+
 	ivec3 vPos;
 	ivec3 vNormal;
 
 	uint dist = imageLoad(storageTexture1, ivec2(gl_FragCoord.xy)).x;
 
-	if (length(startPos - vec3(matrices.inverseView[3])) > dist + 1)
+	if (fragDistance > dist + 1 && imageLoad(storageTexture3, ivec2(gl_FragCoord.xy)).x != priority)
 	{
+//		uint savedColor = imageLoad(storageTexture3, ivec2(gl_FragCoord.xy)).x;
+//		if (savedColor == 0)
+//			discard;
+//		
+//		outColor = unpackUnorm4x8(savedColor);
+//
+//		imageAtomicExchange(storageTexture2,  ivec2(gl_FragCoord.xy), 0);
+//
+//		gl_FragDepth = 0.9999999;
 		discard;
+//		discard;
 	}
 
+//	traceVoxelBoxTree();
 	outColor = traceVoxelBoxTree();
+//	outColor = unpackSnorm4x8(imageLoad(storageTexture3, ivec2(gl_FragCoord.xy)).x);
 
-	float distanceToCamera = length(startPos - vec3(matrices.inverseView[3])) + length(treeStartPos - treePos);
+	float distanceToCamera = length(cameraTreePos - treePos);
+//	outColor = vec4(distanceToCamera / 2000000.);
 
 	gl_FragDepth = max(distanceToCamera / 20000000.0, 0);
 
-	imageAtomicMin(storageTexture1,  ivec2(gl_FragCoord.xy), uint(distanceToCamera));
+
+	if (imageLoad(storageTexture3, ivec2(gl_FragCoord.xy)).x == priority)
+		imageAtomicExchange(storageTexture1,  ivec2(gl_FragCoord.xy), uint(fragDistance));
+	else
+		imageAtomicMin(storageTexture1,  ivec2(gl_FragCoord.xy), uint(fragDistance));
 
 	imageAtomicExchange(storageTexture2,  ivec2(gl_FragCoord.xy), 1);
 
+	vec3 normal = vec3(0);
+	if (nextAxis == 0)
+		normal.x = -nextDir * 2 + 1;
+	else if (nextAxis == 1)
+		normal.y = -nextDir * 2 + 1;
+	else
+		normal.z = -nextDir * 2 + 1;
+//
+//	rayDir = inverse(orientations1[orientation % 4] * orientations2[orientation]) * rayDir;
+//	normal = inverse(orientations1[orientation % 4] * orientations2[orientation]) * normal;
+	normal = normalize(normal);
+	vec3 reflectDir = reflect(-normalize(vec3(-1, 3, 2)), normal);
+	outColor += vec4(max(dot(rayDir, normal), 0.) * 0.2);
 
-	gl_FragDepth *= (1 - priority * 0.00000001);
+//	outColor = unpackUnorm4x8();
+
+	imageAtomicExchange(storageTexture3,  ivec2(gl_FragCoord.xy), priority);
+
+//	gl_FragDepth *= (1 - priority * 0.0000001);
 }

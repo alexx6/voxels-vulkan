@@ -19,7 +19,7 @@ namespace vv {
 		FastNoiseLite noise;
 		noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
 		noise.SetSeed(777);
-		noise.SetFrequency(0.0005f);
+		noise.SetFrequency(0.00025f);
 
 		const int numThreads = std::thread::hardware_concurrency();
 		const int groupSize = 262144 / numThreads;
@@ -40,7 +40,12 @@ namespace vv {
 					glm::ivec3 pos(i % 64 * 256, i / 4096 * 256, i / 64 % 64 * 256);
 					pos += chunkPos * 64 * 256;
 
-					uint32_t modelId = int(noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) * 100 + 100) % (4);
+					float r = (float)rand() / RAND_MAX;
+					uint32_t modelId = 0;
+					if (r > 0.9)
+						modelId = 1;
+
+					//uint32_t modelId = int(noise.GetNoise((float)pos.x, (float)pos.y, (float)pos.z) * 100 + 123) % (2);
 
 					//pos += glm::ivec3(rand() / (float)RAND_MAX * 200, rand() / (float)RAND_MAX * 200, rand() / (float)RAND_MAX * 200);
 

@@ -11,6 +11,7 @@
 namespace vv {
 	struct Matrices {
 		glm::mat4 view{ 1.f };
+		glm::mat4 projection{ 1.f };
 		alignas(16) glm::mat4 inverseView{ 1.f };
 		alignas(16) glm::mat4 inverseProjection{ 1.f };
 	};
@@ -78,13 +79,14 @@ namespace vv {
 		vkCmdPushConstants(
 			commandBuffer,
 			pipelineLayout,
-			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
 			0,
 			sizeof(SimplePushConstantData),
 			&push);
 
 		Matrices matrices;
 		matrices.view = camera.getView();
+		matrices.projection = camera.getProjection();
 		matrices.inverseView = glm::inverse(camera.getView());
 		matrices.inverseProjection = glm::inverse(camera.getProjection());
 
@@ -152,7 +154,7 @@ namespace vv {
 		uboLayoutBinding.binding = 0;
 		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboLayoutBinding.descriptorCount = 1;
-		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 		uboLayoutBinding.pImmutableSamplers = nullptr;
 
 		VkDescriptorSetLayoutBinding ssboLayoutBinding1{};
@@ -207,7 +209,7 @@ namespace vv {
 
 		//Create pipeline layout & PushConstant
 		VkPushConstantRange pushConstantRange{};
-		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 		pushConstantRange.offset = 0;
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 
